@@ -1,0 +1,2 @@
+# sca
+Simple Collector Agent
