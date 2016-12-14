@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,27 +14,32 @@ import (
 )
 
 const (
+	//Version version of running code
+	Version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
 	//VerboseFlag flag to set more verbose level
 	VerboseFlag = "verbose"
 	//EndpointFlag flag to set the endpoint to use (default: unix:///var/run/docker.sock)
 	EndpointFlag = "endpoint"
 	//EndpointEnv env to set endpoint of docker
 	EndpointEnv = "DOCKER_HOST"
-
-	longHelp = `
+	//TimeoutFlag flag to set timeout period
+	TimeoutFlag = "timeout"
+	longHelp    = `
 sca (Simple Collector Agent)
-Collect local data and forward then to a realtime database.
+Collect local data and forward them to a realtime database.
+== Version: %s ==
 `
 )
 
 var (
-	client *docker.Client
-	cmd    = &cobra.Command{
+	timeout   time.Duration
+	startTime = time.Now()
+	client    *docker.Client
+	cmd       = &cobra.Command{
 		Use:              "sca",
 		Short:            "Simple Collector Agent",
 		Long:             longHelp,
 		PersistentPreRun: setupLogger,
-		Run:              start,
 	}
 	infoCmd = &cobra.Command{
 		Use:   "info",
@@ -41,10 +47,29 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			client := initClient(cmd, args)
 			j, _ := json.MarshalIndent(getData(client), "", "  ")
+			//j, _ := json.Marshal(getData(client))
 			fmt.Println(string(j))
 		},
 	}
+	daemonCmd = &cobra.Command{
+		Use:   "daemon",
+		Short: "Start collecting informations and send them to the remote database",
+		Run:   startDaemon,
+	}
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display current version and build date",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("Version: %s\n", Version)
+		},
+	}
 )
+
+//CollectorResponse describe collector informations
+type CollectorResponse struct {
+	Version   string    `json:"Version"`
+	StartTime time.Time `json:"StartTime"` //TODO use a date object
+}
 
 //HostResponse describe host informations
 type HostResponse struct {
@@ -63,13 +88,22 @@ type DockerResponse struct {
 	Info       *docker.DockerInfo     `json:"Info"`
 	Containers []docker.APIContainers `json:"Containers"`
 	Images     []docker.APIImages     `json:"Images"`
+	Volumes    []docker.Volume        `json:"Volumes"`
 	Networks   []docker.Network       `json:"Networks"`
 }
 
 //GlobalResponse object json
 type GlobalResponse struct {
-	Host   *HostResponse   `json:"Host"`
-	Docker *DockerResponse `json:"Docker"`
+	Host      *HostResponse      `json:"Host"`
+	Collector *CollectorResponse `json:"Collector"`
+	Docker    *DockerResponse    `json:"Docker"` //TODO add information on collector version
+}
+
+func main() {
+	setupFlags()
+	cmd.Long = fmt.Sprintf(longHelp, Version)
+	cmd.AddCommand(versionCmd, infoCmd, daemonCmd)
+	cmd.Execute()
 }
 
 func typeOrEnv(cmd *cobra.Command, flag, envname string) string {
@@ -91,12 +125,9 @@ func setupLogger(cmd *cobra.Command, args []string) {
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
-}
 
-func main() {
-	setupFlags()
-	cmd.AddCommand(infoCmd)
-	cmd.Execute()
+	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "t", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
+	//TODO Setup a list modules to load like modules=host,collector,docker ...
 }
 
 func initClient(cmd *cobra.Command, args []string) *docker.Client {
@@ -109,18 +140,27 @@ func initClient(cmd *cobra.Command, args []string) *docker.Client {
 	return client
 }
 func getDockerData(client *docker.Client) *DockerResponse {
+	//Get images
 	imgs, err := client.ListImages(docker.ListImagesOptions{All: true})
 	if err != nil {
 		panic(err)
 	}
+	//Get networks
 	nets, err := client.ListNetworks()
 	if err != nil {
 		panic(err)
 	}
+	//Get container
 	cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
 	if err != nil {
 		panic(err)
 	}
+	//Get volumes
+	vols, err := client.ListVolumes(docker.ListVolumesOptions{})
+	if err != nil {
+		panic(err)
+	}
+	//Get server info
 	info, err := client.Info()
 	if err != nil {
 		panic(err)
@@ -129,7 +169,14 @@ func getDockerData(client *docker.Client) *DockerResponse {
 		Info:       info,
 		Containers: cnts,
 		Images:     imgs,
+		Volumes:    vols,
 		Networks:   nets,
+	}
+}
+func getCollectorData() *CollectorResponse {
+	return &CollectorResponse{
+		Version:   Version,
+		StartTime: startTime,
 	}
 }
 func getHostData(client *docker.Client) *HostResponse {
@@ -137,11 +184,12 @@ func getHostData(client *docker.Client) *HostResponse {
 	if err != nil {
 		panic(err)
 	}
+
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		panic(err)
 	}
-	//var ints [len(ifaces)]InterfaceResponse
+
 	ints := make([]InterfaceResponse, len(ifaces), len(ifaces))
 	for id, i := range ifaces {
 		addrs, err := i.Addrs()
@@ -161,14 +209,22 @@ func getHostData(client *docker.Client) *HostResponse {
 func getData(client *docker.Client) *GlobalResponse {
 	//TODO detect if docket
 	return &GlobalResponse{
-		Host:   getHostData(client),
-		Docker: getDockerData(client),
+		Host:      getHostData(client),
+		Collector: getCollectorData(),
+		Docker:    getDockerData(client),
 	}
 }
-func start(cmd *cobra.Command, args []string) {
+func startDaemon(cmd *cobra.Command, args []string) {
+	//TODO generate UUID to get persistance run ?
+	//TODO monitor event and update data
 	client := initClient(cmd, args)
 	j, _ := json.Marshal(getData(client))
 	log.Debugln(string(j))
-	//TODO monitor event and update data
+	c := time.Tick(timeout)
+	for now := range c {
+		j, _ := json.Marshal(getData(client))
+		//fmt.Printf("%v %s\n", now, string(j))
+		log.Debugln(now, string(j))
+	}
 	//func (c *Client) AddEventListener(listener chan<- *APIEvents) error
 }
