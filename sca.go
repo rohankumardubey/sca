@@ -1,21 +1,25 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
 
+	"github.com/nu7hatch/gouuid"
 	"github.com/spf13/cobra"
+	"gopkg.in/zabawaba99/firego.v1"
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	//Version version of running code
-	Version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
 	//VerboseFlag flag to set more verbose level
 	VerboseFlag = "verbose"
 	//EndpointFlag flag to set the endpoint to use (default: unix:///var/run/docker.sock)
@@ -24,18 +28,31 @@ const (
 	EndpointEnv = "DOCKER_HOST"
 	//TimeoutFlag flag to set timeout period
 	TimeoutFlag = "timeout"
+	//TokenFlag flag to set firebase token
+	TokenFlag = "token"
+	//BaseURLFlag flag to set firebase url
+	BaseURLFlag = "url"
 	longHelp    = `
 sca (Simple Collector Agent)
 Collect local data and forward them to a realtime database.
-== Version: %s ==
+== Version: %s - Hash: %s ==
 `
 )
 
 var (
+	//Version version of running code
+	version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
+	hash    = ""
+
+	client *docker.Client
+
+	authToken string
+	baseURL   string
+
 	timeout   time.Duration
 	startTime = time.Now()
-	client    *docker.Client
-	cmd       = &cobra.Command{
+
+	cmd = &cobra.Command{
 		Use:              "sca",
 		Short:            "Simple Collector Agent",
 		Long:             longHelp,
@@ -60,7 +77,7 @@ var (
 		Use:   "version",
 		Short: "Display current version and build date",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Version: %s\n", Version)
+			fmt.Printf("Version: %s - Hash: %s\n", version, hash)
 		},
 	}
 )
@@ -68,7 +85,8 @@ var (
 //CollectorResponse describe collector informations
 type CollectorResponse struct {
 	Version   string    `json:"Version"`
-	StartTime time.Time `json:"StartTime"` //TODO use a date object
+	StartTime time.Time `json:"StartTime"`
+	Hash      string    `json:"Hash"`
 }
 
 //HostResponse describe host informations
@@ -85,23 +103,31 @@ type InterfaceResponse struct {
 
 //DockerResponse describe a docker host informations
 type DockerResponse struct {
-	Info       *docker.DockerInfo     `json:"Info"`
-	Containers []docker.APIContainers `json:"Containers"`
-	Images     []docker.APIImages     `json:"Images"`
-	Volumes    []docker.Volume        `json:"Volumes"`
-	Networks   []docker.Network       `json:"Networks"`
+	Info       *docker.DockerInfo     `json:"Info,omitempty"`
+	Containers []docker.APIContainers `json:"Containers,omitempty"`
+	Images     []docker.APIImages     `json:"Images,omitempty"`
+	Volumes    []docker.Volume        `json:"Volumes,omitempty"`
+	Networks   []docker.Network       `json:"Networks,omitempty"`
 }
 
 //GlobalResponse object json
 type GlobalResponse struct {
-	Host      *HostResponse      `json:"Host"`
-	Collector *CollectorResponse `json:"Collector"`
-	Docker    *DockerResponse    `json:"Docker"` //TODO add information on collector version
+	UUID      string             `json:"UUID,omitempty"`
+	Host      *HostResponse      `json:"Host,omitempty"`
+	Collector *CollectorResponse `json:"Collector,omitempty"`
+	Docker    *DockerResponse    `json:"Docker,omitempty"` //TODO add information on collector version
 }
 
 func main() {
 	setupFlags()
-	cmd.Long = fmt.Sprintf(longHelp, Version)
+	//*
+	h, err := getHash(os.Args[0])
+	if err != nil {
+		panic(err)
+	}
+	hash = h
+	/**/
+	cmd.Long = fmt.Sprintf(longHelp, version, hash)
 	cmd.AddCommand(versionCmd, infoCmd, daemonCmd)
 	cmd.Execute()
 }
@@ -121,13 +147,28 @@ func setupLogger(cmd *cobra.Command, args []string) {
 		log.SetLevel(log.InfoLevel)
 	}
 }
-
+func getHash(filePath string) (result string, err error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	hash := sha1.New()
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 
-	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "t", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
+	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
+	daemonCmd.Flags().StringVarP(&authToken, TokenFlag, "t", "", "Firebase authentification token")
+	daemonCmd.Flags().StringVarP(&baseURL, BaseURLFlag, "u", "", "Firebase base url")
 	//TODO Setup a list modules to load like modules=host,collector,docker ...
+	//TODO add flag to force UUID
 }
 
 func initClient(cmd *cobra.Command, args []string) *docker.Client {
@@ -140,43 +181,53 @@ func initClient(cmd *cobra.Command, args []string) *docker.Client {
 	return client
 }
 func getDockerData(client *docker.Client) *DockerResponse {
+	//TODO
 	//Get images
 	imgs, err := client.ListImages(docker.ListImagesOptions{All: true})
 	if err != nil {
 		panic(err)
 	}
-	//Get networks
-	nets, err := client.ListNetworks()
-	if err != nil {
-		panic(err)
-	}
-	//Get container
-	cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
-	if err != nil {
-		panic(err)
-	}
+	/*
+		//Get networks
+		nets, err := client.ListNetworks()
+		if err != nil {
+			panic(err)
+		}
+	*/
+	/*
+		//Get container
+		cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
+		if err != nil {
+			panic(err)
+		}
+	*/
+	//*
 	//Get volumes
 	vols, err := client.ListVolumes(docker.ListVolumesOptions{})
 	if err != nil {
 		panic(err)
 	}
-	//Get server info
-	info, err := client.Info()
-	if err != nil {
-		panic(err)
-	}
+	//*/
+	/*
+		//Get server info
+		info, err := client.Info()
+		if err != nil {
+			panic(err)
+		}
+	*/
 	return &DockerResponse{
-		Info:       info,
-		Containers: cnts,
-		Images:     imgs,
-		Volumes:    vols,
-		Networks:   nets,
+		//Info: info,
+		//Containers: cnts,
+		Images:  imgs,
+		Volumes: vols,
+		//Networks: nets,
 	}
 }
 func getCollectorData() *CollectorResponse {
 	return &CollectorResponse{
-		Version:   Version,
+		Version:   version,
 		StartTime: startTime,
+		Hash:      hash,
 	}
 }
 func getHostData(client *docker.Client) *HostResponse {
@@ -184,7 +235,6 @@ func getHostData(client *docker.Client) *HostResponse {
 	if err != nil {
 		panic(err)
 	}
-
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		panic(err)
@@ -207,24 +257,44 @@ func getHostData(client *docker.Client) *HostResponse {
 	}
 }
 func getData(client *docker.Client) *GlobalResponse {
-	//TODO detect if docket
+	//TODO detect if docket and filter by modules list
+	host := getHostData(client)
+	u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(host.Name)) //TODO better discriminate
+	if err != nil {
+		panic(err)
+	}
 	return &GlobalResponse{
-		Host:      getHostData(client),
+		UUID:      u5.String(),
+		Host:      host,
 		Collector: getCollectorData(),
 		Docker:    getDockerData(client),
 	}
 }
 func startDaemon(cmd *cobra.Command, args []string) {
-	//TODO generate UUID to get persistance run ?
+	if authToken == "" {
+		panic(errors.New("You need to set a auth token"))
+	}
 	//TODO monitor event and update data
 	client := initClient(cmd, args)
-	j, _ := json.Marshal(getData(client))
+	data := getData(client)
+	j, _ := json.Marshal(data)
 	log.Debugln(string(j))
+
+	f := firego.New(baseURL+"/"+data.UUID, nil)
+	f.Auth(authToken)
+	defer f.Unauth()
+	if err := f.Set(data); err != nil {
+		log.Fatal(err)
+	}
 	c := time.Tick(timeout)
 	for now := range c {
-		j, _ := json.Marshal(getData(client))
+		data = getData(client)
+		j, _ := json.Marshal(data)
 		//fmt.Printf("%v %s\n", now, string(j))
 		log.Debugln(now, string(j))
+		if err := f.Update(data); err != nil {
+			log.Fatal(err)
+		}
 	}
 	//func (c *Client) AddEventListener(listener chan<- *APIEvents) error
 }
