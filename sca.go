@@ -121,6 +121,15 @@ func getDockerData(client *docker.Client) *DockerResponse {
 	if err != nil {
 		panic(err)
 	}
+	for id, i := range imgs {
+		if len(i.Labels) > 0 { //Reconstruct map without . in key
+			tmp := make(map[string]string, len(i.Labels))
+			for iid, val := range i.Labels {
+				tmp[strings.Replace(iid, ".", "-", -1)] = val
+			}
+			imgs[id].Labels = tmp
+		}
+	}
 
 	//Get container
 	cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
