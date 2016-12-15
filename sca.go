@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/nu7hatch/gouuid"
@@ -114,46 +115,68 @@ func initClient(cmd *cobra.Command, args []string) *docker.Client {
 	return client
 }
 func getDockerData(client *docker.Client) *DockerResponse {
-	//TODO
+
 	//Get images
 	imgs, err := client.ListImages(docker.ListImagesOptions{All: true})
 	if err != nil {
 		panic(err)
 	}
-	/*
-		//Get networks
-		nets, err := client.ListNetworks()
-		if err != nil {
-			panic(err)
+
+	//Get container
+	cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
+	if err != nil {
+		panic(err)
+	}
+	for id, c := range cnts {
+		if len(c.Labels) > 0 { //Reconstruct map without . in key
+			tmp := make(map[string]string, len(c.Labels))
+			for vid, val := range c.Labels {
+				tmp[strings.Replace(vid, ".", "-", -1)] = val
+			}
+			cnts[id].Labels = tmp
 		}
-	*/
-	/*
-		//Get container
-		cnts, err := client.ListContainers(docker.ListContainersOptions{All: true})
-		if err != nil {
-			panic(err)
-		}
-	*/
-	//*
+	}
+
 	//Get volumes
 	vols, err := client.ListVolumes(docker.ListVolumesOptions{})
 	if err != nil {
 		panic(err)
 	}
-	//*/
-	/*
-		//Get server info
-		info, err := client.Info()
-		if err != nil {
-			panic(err)
+
+	//Get server info
+	info, err := client.Info()
+	if err != nil {
+		panic(err)
+	}
+	//Clean of . in key info.RegistryConfig.IndexConfigs
+	tmp := make(map[string]*docker.IndexInfo, len(info.RegistryConfig.IndexConfigs))
+	for id, conf := range info.RegistryConfig.IndexConfigs {
+		tmp[strings.Replace(id, ".", "-", -1)] = conf
+	}
+	info.RegistryConfig.IndexConfigs = tmp
+
+	//Get networks
+	nets, err := client.ListNetworks()
+	if err != nil {
+		panic(err)
+	}
+	//Clean . in key of options
+	for id, n := range nets {
+		if len(n.Options) > 0 { //Reconstruct map without . in key
+			tmp := make(map[string]string, len(n.Options))
+			for oid, opt := range n.Options {
+				tmp[strings.Replace(oid, ".", "-", -1)] = opt
+			}
+			nets[id].Options = tmp
 		}
-	*/
+	}
+
 	return &DockerResponse{
-		//Info: info,
-		//Containers: cnts,
-		Images:  imgs,
-		Volumes: vols,
-		//Networks: nets,
+		Info:       info,
+		Containers: cnts,
+		Images:     imgs,
+		Volumes:    vols,
+		Networks:   nets,
 	}
 }
 func getCollectorData() *CollectorResponse {
@@ -173,7 +196,7 @@ func getHostData(client *docker.Client) *HostResponse {
 		panic(err)
 	}
 
-	ints := make([]InterfaceResponse, len(ifaces), len(ifaces))
+	ints := make([]InterfaceResponse, len(ifaces))
 	for id, i := range ifaces {
 		addrs, err := i.Addrs()
 		if err != nil {
