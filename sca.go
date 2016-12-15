@@ -1,12 +1,9 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"time"
@@ -82,42 +79,6 @@ var (
 	}
 )
 
-//CollectorResponse describe collector informations
-type CollectorResponse struct {
-	Version   string    `json:"Version"`
-	StartTime time.Time `json:"StartTime"`
-	Hash      string    `json:"Hash"`
-}
-
-//HostResponse describe host informations
-type HostResponse struct {
-	Name       string              `json:"Name"` //TODO add ressources IP, CPU, MEM
-	Interfaces []InterfaceResponse `json:"Interfaces"`
-}
-
-//InterfaceResponse describe interface informations
-type InterfaceResponse struct {
-	Info  net.Interface `json:"Info"` //TODO add ressources IP, CPU, MEM
-	Addrs []net.Addr    `json:"Addrs"`
-}
-
-//DockerResponse describe a docker host informations
-type DockerResponse struct {
-	Info       *docker.DockerInfo     `json:"Info,omitempty"`
-	Containers []docker.APIContainers `json:"Containers,omitempty"`
-	Images     []docker.APIImages     `json:"Images,omitempty"`
-	Volumes    []docker.Volume        `json:"Volumes,omitempty"`
-	Networks   []docker.Network       `json:"Networks,omitempty"`
-}
-
-//GlobalResponse object json
-type GlobalResponse struct {
-	UUID      string             `json:"UUID,omitempty"`
-	Host      *HostResponse      `json:"Host,omitempty"`
-	Collector *CollectorResponse `json:"Collector,omitempty"`
-	Docker    *DockerResponse    `json:"Docker,omitempty"` //TODO add information on collector version
-}
-
 func main() {
 	setupFlags()
 	//*
@@ -132,34 +93,6 @@ func main() {
 	cmd.Execute()
 }
 
-func typeOrEnv(cmd *cobra.Command, flag, envname string) string {
-	val, _ := cmd.Flags().GetString(flag)
-	if val == "" {
-		val = os.Getenv(envname)
-	}
-	return val
-}
-
-func setupLogger(cmd *cobra.Command, args []string) {
-	if verbose, _ := cmd.Flags().GetBool(VerboseFlag); verbose {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
-	}
-}
-func getHash(filePath string) (result string, err error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	hash := sha1.New()
-	_, err = io.Copy(hash, file)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
