@@ -178,6 +178,13 @@ func getDockerData(client *docker.Client) *DockerResponse {
 			}
 			nets[id].Options = tmp
 		}
+		if len(n.Labels) > 0 { //Reconstruct map without . in key
+			tmp := make(map[string]string, len(n.Labels))
+			for lid, val := range n.Labels {
+				tmp[strings.Replace(lid, ".", "-", -1)] = val
+			}
+			nets[id].Labels = tmp
+		}
 	}
 
 	return &DockerResponse{
