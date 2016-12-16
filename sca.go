@@ -6,16 +6,20 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
-	"github.com/nu7hatch/gouuid"
-	"github.com/spf13/cobra"
-	"gopkg.in/zabawaba99/firego.v1"
-
 	docker "github.com/fsouza/go-dockerclient"
+	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	firego "gopkg.in/zabawaba99/firego.v1"
 )
+
+//TODO use a config file
+//TODO optimize data transfert to update only needed data
+//TODO watch docker event
 
 const (
 	//VerboseFlag flag to set more verbose level
@@ -42,7 +46,8 @@ var (
 	version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
 	hash    = ""
 
-	client *docker.Client
+	client  *docker.Client
+	oldData *GlobalResponse
 
 	authToken string
 	baseURL   string
@@ -189,10 +194,10 @@ func getDockerData(client *docker.Client) *DockerResponse {
 
 	return &DockerResponse{
 		Info:       info,
-		Containers: cnts,
-		Images:     imgs,
-		Volumes:    vols,
-		Networks:   nets,
+		Containers: &cnts,
+		Images:     &imgs,
+		Volumes:    &vols,
+		Networks:   &nets,
 	}
 }
 func getCollectorData() *CollectorResponse {
@@ -231,7 +236,7 @@ func getHostData(client *docker.Client) *HostResponse {
 func getData(client *docker.Client) *GlobalResponse {
 	//TODO detect if docket and filter by modules list
 	host := getHostData(client)
-	u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(host.Name)) //TODO better discriminate
+	u5, err := uuid.NewV5(uuid.NamespaceURL, []byte(host.Name)) //TODO better discriminate maybe add time and save it in /etc/sca/uuid ?
 	if err != nil {
 		panic(err)
 	}
@@ -242,31 +247,62 @@ func getData(client *docker.Client) *GlobalResponse {
 		Docker:    getDockerData(client),
 	}
 }
+
+func sendData(data *GlobalResponse) {
+	//TODO update only needed data
+	//j, _ := json.Marshal(data)
+	//log.Debugln(string(j))
+
+	f := firego.New(baseURL+"/"+data.UUID, nil)
+	f.Auth(authToken)
+	defer f.Unauth()
+	if oldData == nil {
+		log.Debug("Preparing set ...")
+		if err := f.Set(data); err != nil {
+			log.Fatal(err)
+		}
+		//Debug
+		bytes, _ := json.Marshal(data)
+		log.WithFields(log.Fields{
+			"send_bytes": len(bytes),
+		}).Info("Sending complete messages")
+		//log.Debug(data)
+		oldData = data //Save state
+	} else {
+		log.Debug("Preparing update ...")
+		if reflect.DeepEqual(oldData, data) {
+			log.Debug("Nothing to update data are identical")
+			return
+		}
+		//Debug
+		bytes, _ := json.Marshal(data)
+		cleanData := cleanData(data) //Remove duplicate
+		if err := f.Update(cleanData); err != nil {
+			log.Fatal(err)
+		}
+		//Debug
+		cleanBytes, _ := json.Marshal(cleanData)
+		log.WithFields(log.Fields{
+			"data_bytes": len(bytes),
+			"send_bytes": len(cleanBytes),
+		}).Info("Sending update messages")
+		//log.Debug(cleanData)
+		oldData = data //Save state of global data
+	}
+}
+
 func startDaemon(cmd *cobra.Command, args []string) {
 	if authToken == "" {
 		panic(errors.New("You need to set a auth token"))
 	}
 	//TODO monitor event and update data
 	client := initClient(cmd, args)
-	data := getData(client)
-	j, _ := json.Marshal(data)
-	log.Debugln(string(j))
+	sendData(getData(client))
 
-	f := firego.New(baseURL+"/"+data.UUID, nil)
-	f.Auth(authToken)
-	defer f.Unauth()
-	if err := f.Set(data); err != nil {
-		log.Fatal(err)
-	}
 	c := time.Tick(timeout)
 	for now := range c {
-		data = getData(client)
-		j, _ := json.Marshal(data)
-		//fmt.Printf("%v %s\n", now, string(j))
-		log.Debugln(now, string(j))
-		if err := f.Update(data); err != nil {
-			log.Fatal(err)
-		}
+		log.Debug("Timeout tick triggered ", now)
+		sendData(getData(client))
 	}
 	//func (c *Client) AddEventListener(listener chan<- *APIEvents) error
 }

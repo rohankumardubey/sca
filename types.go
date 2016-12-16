@@ -9,30 +9,30 @@ import (
 
 //CollectorResponse describe collector informations
 type CollectorResponse struct {
-	Version   string    `json:"Version"`
-	StartTime time.Time `json:"StartTime"`
-	Hash      string    `json:"Hash"`
+	Version   string    `json:"Version,omitempty"`
+	StartTime time.Time `json:"StartTime,omitempty"`
+	Hash      string    `json:"Hash,omitempty"`
 }
 
 //HostResponse describe host informations
 type HostResponse struct {
-	Name       string              `json:"Name"` //TODO add ressources IP, CPU, MEM
-	Interfaces []InterfaceResponse `json:"Interfaces"`
+	Name       string              `json:"Name,omitempty"` //TODO add ressources IP, CPU, MEM
+	Interfaces []InterfaceResponse `json:"Interfaces,omitempty"`
 }
 
 //InterfaceResponse describe interface informations
 type InterfaceResponse struct {
-	Info  net.Interface `json:"Info"` //TODO add ressources IP, CPU, MEM
-	Addrs []net.Addr    `json:"Addrs"`
+	Info  net.Interface `json:"Info,omitempty"` //TODO add ressources IP, CPU, MEM
+	Addrs []net.Addr    `json:"Addrs,omitempty"`
 }
 
 //DockerResponse describe a docker host informations
 type DockerResponse struct {
-	Info       *docker.DockerInfo     `json:"Info,omitempty"`
-	Containers []docker.APIContainers `json:"Containers,omitempty"`
-	Images     []docker.APIImages     `json:"Images,omitempty"`
-	Volumes    []docker.Volume        `json:"Volumes,omitempty"`
-	Networks   []docker.Network       `json:"Networks,omitempty"`
+	Info       *docker.DockerInfo      `json:"Info,omitempty"`
+	Containers *[]docker.APIContainers `json:"Containers,omitempty"`
+	Images     *[]docker.APIImages     `json:"Images,omitempty"`
+	Volumes    *[]docker.Volume        `json:"Volumes,omitempty"`
+	Networks   *[]docker.Network       `json:"Networks,omitempty"`
 }
 
 //GlobalResponse object json
