@@ -1,15 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"io"
 	"os"
 	"reflect"
 	"sort"
 
+	"github.com/fatih/structs"
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -52,6 +51,85 @@ func setupLogger(cmd *cobra.Command, args []string) {
 	}
 }
 
+func sortedKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+func removeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) map[string]interface{} {
+	//sR := structs.Struct{}
+	mapR := map[string]interface{}{}
+	//keysO := sortedKeys(mapO)
+	//keysN := sortedKeys(mapN)
+	for _, fO := range sO.Fields() { //Keys in old obj
+		log.Debug("Parsing key ", path+"/"+fO.Name(), " in Old")
+		//vO := mapO[kO]     //Valuer (interface)
+		//vN, ok := mapN[kO] //Check if key exist in New
+		_, ok := sN.FieldOk(fO.Name()) //Check if key exist in New
+		if !ok {                       //No key found
+			log.Debug("Key ", path+"/"+fO.Name(), " from Old is missing in New")
+			return sN.Map() //Send complete to update all object/array
+		}
+	}
+	for _, fN := range sN.Fields() { //Keys in new obj
+		log.Debug("Parsing key ", path+"/"+fN.Name(), " in New")
+		//vN := fN.Value()                //Valuer (interface)
+		fO, ok := sO.FieldOk(fN.Name()) //Check if key exist in New
+		if !ok {                        //No key found in old
+			mapR[fN.Name()] = fN.Value() //Store in result
+			continue
+		}
+		if !reflect.DeepEqual(fO.Value(), fN.Value()) {
+			/*
+				switch path + "/" + fN.Name() {
+				case "/Docker":
+					if tmp, ok := (fN.Value()).(*DockerResponse); ok {
+						//vN := tmp
+						log.Debug(tmp)
+					} else {
+						panic("Error of format conversion")
+					}
+					if tmp, ok := (fO.Value()).(*DockerResponse); ok {
+						//vO := tmp
+						log.Debug(tmp)
+					} else {
+						panic("Error of format conversion")
+					}
+					break
+				}
+				//*/
+			log.Debug(path+"/"+fN.Name(), " seems to be different")
+			log.Debug(path+"/"+fN.Name(), " old kind ", fO.Kind(), " value ", fO.Value())
+			log.Debug(path+"/"+fN.Name(), " new kind ", fN.Kind(), " value ", fN.Value())
+			//*
+			if structs.IsStruct(fO.Value()) && structs.IsStruct(fN.Value()) {
+				log.Debug(path+"/"+fN.Name(), " is a struct")
+				mapR[fN.Name()] = removeDuplicateData(path+"/"+fN.Name(), structs.New(fO.Value()), structs.New(fN.Value())) //Store in result of parsing recursive
+			} else {
+				log.Debug(path+"/"+fN.Name(), " is not a struct")
+				mapR[fN.Name()] = fN.Value()
+			}
+			//*/
+			//TODO maybe order array ?
+		} else {
+			log.Debug(path+"/"+fN.Name(), " seems to be identical")
+		}
+	}
+
+	log.Debug(mapR)
+	return mapR
+}
+
+/*
+func removeDuplicateData(old *GlobalResponse, new *GlobalResponse) map[string]interface{} {
+	return removeDuplicateData(structs.Map(old), structs.Map(new)) //Empty for now
+}
+*/
+
+/*
 func cleanData(data *GlobalResponse) *GlobalResponse {
 	//TODO should be done a JSON level
 	//Global oldData
@@ -163,7 +241,7 @@ func cleanData(data *GlobalResponse) *GlobalResponse {
 	log.Debug("Docker.Volumes: ", ret.Docker.Volumes)
 	return ret
 }
-
+*/
 /*
 //Quick and dirty
 func convertData(data *GlobalResponse) (map[string]string, error) {

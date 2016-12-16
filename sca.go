@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/structs"
 	docker "github.com/fsouza/go-dockerclient"
 	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
@@ -276,7 +277,7 @@ func sendData(data *GlobalResponse) {
 		}
 		//Debug
 		bytes, _ := json.Marshal(data)
-		cleanData := cleanData(data) //Remove duplicate
+		cleanData := removeDuplicateData("", structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
 		if err := f.Update(cleanData); err != nil {
 			log.Fatal(err)
 		}
