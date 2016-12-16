@@ -7,12 +7,13 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/fatih/structs"
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	firego "gopkg.in/zabawaba99/firego.v1"
 )
 
 //ByContainerID sort class
@@ -21,6 +22,27 @@ type ByContainerID []docker.APIContainers
 func (a ByContainerID) Len() int           { return len(a) }
 func (a ByContainerID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByContainerID) Less(i, j int) bool { return a[i].ID < a[j].ID }
+
+//ByImageID sort class
+type ByImageID []docker.APIImages
+
+func (a ByImageID) Len() int           { return len(a) }
+func (a ByImageID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByImageID) Less(i, j int) bool { return a[i].ID < a[j].ID }
+
+//ByVolumeID sort class
+type ByVolumeID []docker.Volume
+
+func (a ByVolumeID) Len() int           { return len(a) }
+func (a ByVolumeID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByVolumeID) Less(i, j int) bool { return a[i].Name < a[j].Name }
+
+//ByNetworkID sort class
+type ByNetworkID []docker.Network
+
+func (a ByNetworkID) Len() int           { return len(a) }
+func (a ByNetworkID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByNetworkID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 
 func getHash(filePath string) (result string, err error) {
 	file, err := os.Open(filePath)
@@ -72,13 +94,7 @@ func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) ma
 		_, ok := sN.FieldOk(fO.Name()) //Check if key exist in New
 		if !ok {                       //No key found
 			log.Debug("Key ", path+"/"+fO.Name(), " from Old is missing in New -> Remove from distant")
-			f := firego.New(baseURL+"/"+path+"/"+fO.Name(), nil)
-			f.Auth(authToken)
-			defer f.Unauth()
-			if err := f.Remove(); err != nil {
-				log.Fatal(err)
-			}
-
+			apiRemove(path + "/" + fO.Name())
 			//return sN.Map() //Send complete to update all object/array
 		}
 	}
@@ -89,12 +105,7 @@ func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) ma
 		if !ok {                        //No key found in old
 			mapR[fN.Name()] = fN.Value() //Store in result
 			log.Debug("Key ", path+"/"+fN.Name(), " from New is missing in Old -> Set To distant")
-			f := firego.New(baseURL+"/"+path+"/"+fN.Name(), nil)
-			f.Auth(authToken)
-			defer f.Unauth()
-			if err := f.Set(fN.Value()); err != nil {
-				log.Fatal(err)
-			}
+			apiSet(path+"/"+fN.Name(), fN.Value())
 			continue
 		}
 		if !reflect.DeepEqual(fO.Value(), fN.Value()) {
@@ -108,49 +119,166 @@ func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) ma
 				mapR[fN.Name()] = sendDeDuplicateData(path+"/"+fN.Name(), structs.New(fO.Value()), structs.New(fN.Value()))
 			} else {
 				log.Debug(path+"/"+fN.Name(), " is not a struct")
-				/*
-					if arr, ok := fN.Value().(slice); ok {
-						log.Debug("Is array !")
-						log.Debug(arr)
-					} else {
-						log.Debug("Not a array !")
-					}
-				*/
 				if fN.Kind() == reflect.Slice {
 					log.Debug("Is array !")
-					//TODO compare array like in jsondiff
-					/*
-						arrN, ok1 := fN.Value().([]docker.APIContainers)
-						arrO, ok2 := fO.Value().([]docker.APIContainers)
-						if ok1 && ok2 {
-							log.Debug("Is container array !")
-							//log.Debug(arr)
-							sort.Sort(ByContainerID(arrN))
-							sort.Sort(ByContainerID(arrO))
-							//TODO detect diff
-							mapR[fN.Name()] = []docker.APIContainers{}
-							for i := 0; i < int(math.Max(float64(len(arrN)), float64(len(arrO)))); i++ {
-								mapR[fN.Name()][i] = sendDeDuplicateData(path+"/"+fN.Name(), structs.New(arrO[i]), structs.New(arrN[i])) //TODO when not same size ?
-							}
-							mapR[fN.Name()] = list
-						} else {
-							log.Debug("Is not a container array !")
+					//TODO []net.Addr []InterfaceResponse
+
+					/* Catch APIContainers */
+					arrN, ok1 := fN.Value().([]docker.APIContainers)
+					arrO, ok2 := fO.Value().([]docker.APIContainers)
+					if ok1 && ok2 {
+						log.Debug("Is container array !")
+						sort.Sort(ByContainerID(arrN))
+						sort.Sort(ByContainerID(arrO))
+						list := make([]map[string]interface{}, len(arrN))
+						for i := 0; i < min(len(arrN), len(arrO)); i++ { //Compare common
+							log.Debug(path+"/"+fN.Name()+"/"+strconv.Itoa(i), " is a struct")
+							list[i] = sendDeDuplicateData(path+"/"+fN.Name()+"/"+strconv.Itoa(i), structs.New(arrO[i]), structs.New(arrN[i])) //TODO Report back to mapR
 						}
-					*/
-					//TODO same for images ...
+
+						for i := min(len(arrN), len(arrO)); i < len(arrO); i++ { //Remove
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from Old is missing in New -> Remove from distant")
+							apiRemove(path + "/" + fN.Name() + "/" + strconv.Itoa(i))
+						}
+
+						for i := min(len(arrN), len(arrO)); i < len(arrN); i++ { //Ajout
+							list[i] = structs.Map(arrN[i])
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from New is missing in Old -> Set To distant")
+							apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrN[i])
+						}
+						mapR[fN.Name()] = list
+						continue
+					} else {
+						log.Debug("Is not a APIContainers array !")
+					}
+
+					/* Catch APIImages */
+					arrIN, ok1 := fN.Value().([]docker.APIImages)
+					arrIO, ok2 := fO.Value().([]docker.APIImages)
+					if ok1 && ok2 {
+						log.Debug("Is image array !")
+						sort.Sort(ByImageID(arrIN))
+						sort.Sort(ByImageID(arrIO))
+						list := make([]map[string]interface{}, len(arrIN))
+						for i := 0; i < min(len(arrIN), len(arrIO)); i++ { //Compare common
+							log.Debug(path+"/"+fN.Name()+"/"+strconv.Itoa(i), " is a struct")
+							list[i] = sendDeDuplicateData(path+"/"+fN.Name()+"/"+strconv.Itoa(i), structs.New(arrIO[i]), structs.New(arrIN[i])) //TODO Report back to mapR
+						}
+
+						for i := min(len(arrIN), len(arrIO)); i < len(arrIO); i++ { //Remove
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from Old is missing in New -> Remove from distant")
+							apiRemove(path + "/" + fN.Name() + "/" + strconv.Itoa(i))
+						}
+
+						for i := min(len(arrIN), len(arrIO)); i < len(arrIN); i++ { //Ajout
+							list[i] = structs.Map(arrIN[i])
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from New is missing in Old -> Set To distant")
+							apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrIN[i])
+						}
+						mapR[fN.Name()] = list
+						continue
+					} else {
+						log.Debug("Is not a APIImages array !")
+					}
+
+					/* Catch Volume */
+					arrVN, ok1 := fN.Value().([]docker.Volume)
+					arrVO, ok2 := fO.Value().([]docker.Volume)
+					if ok1 && ok2 {
+						log.Debug("Is Volume array !")
+						sort.Sort(ByVolumeID(arrVN))
+						sort.Sort(ByVolumeID(arrVO))
+						list := make([]map[string]interface{}, len(arrVN))
+						for i := 0; i < min(len(arrVN), len(arrVO)); i++ { //Compare common
+							log.Debug(path+"/"+fN.Name()+"/"+strconv.Itoa(i), " is a struct")
+							list[i] = sendDeDuplicateData(path+"/"+fN.Name()+"/"+strconv.Itoa(i), structs.New(arrVO[i]), structs.New(arrVN[i])) //TODO Report back to mapR
+						}
+
+						for i := min(len(arrVN), len(arrVO)); i < len(arrVO); i++ { //Remove
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from Old is missing in New -> Remove from distant")
+							apiRemove(path + "/" + fN.Name() + "/" + strconv.Itoa(i))
+						}
+
+						for i := min(len(arrVN), len(arrVO)); i < len(arrVN); i++ { //Ajout
+							list[i] = structs.Map(arrVN[i])
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from New is missing in Old -> Set To distant")
+							apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrVN[i])
+						}
+						mapR[fN.Name()] = list
+						continue
+					} else {
+						log.Debug("Is not a Volume array !")
+					}
+
+					/* Catch Network */
+					arrNN, ok1 := fN.Value().([]docker.Network)
+					arrNO, ok2 := fO.Value().([]docker.Network)
+					if ok1 && ok2 {
+						log.Debug("Is Network array !")
+						sort.Sort(ByNetworkID(arrNN))
+						sort.Sort(ByNetworkID(arrNO))
+						list := make([]map[string]interface{}, len(arrNN))
+						for i := 0; i < min(len(arrNN), len(arrNO)); i++ { //Compare common
+							log.Debug(path+"/"+fN.Name()+"/"+strconv.Itoa(i), " is a struct")
+							list[i] = sendDeDuplicateData(path+"/"+fN.Name()+"/"+strconv.Itoa(i), structs.New(arrNO[i]), structs.New(arrNN[i])) //TODO Report back to mapR
+						}
+
+						for i := min(len(arrNN), len(arrNO)); i < len(arrNO); i++ { //Remove
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from Old is missing in New -> Remove from distant")
+							apiRemove(path + "/" + fN.Name() + "/" + strconv.Itoa(i))
+						}
+
+						for i := min(len(arrNN), len(arrNO)); i < len(arrNN); i++ { //Ajout
+							list[i] = structs.Map(arrNN[i])
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from New is missing in Old -> Set To distant")
+							apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrNN[i])
+						}
+						mapR[fN.Name()] = list
+						continue
+					} else {
+						log.Debug("Is not a Network array !")
+					}
+
+					/* Catch Strings */
+					//*
+					arrSN, ok1 := fN.Value().([]string)
+					arrSO, ok2 := fO.Value().([]string)
+					if ok1 && ok2 {
+						log.Debug("Is string array !")
+						sort.Strings(arrSN)
+						sort.Strings(arrSO)
+						list := make([]string, len(arrSN))
+						for i := 0; i < min(len(arrSN), len(arrSO)); i++ { //Compare common
+							log.Debug(path+"/"+fN.Name()+"/"+strconv.Itoa(i), " is a string")
+							if strings.Compare(arrSO[i], arrSN[i]) != 0 { //Compare string
+								list[i] = arrSN[i]
+								apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrSN[i]) //Change detected
+							}
+						}
+
+						for i := min(len(arrSN), len(arrSO)); i < len(arrSO); i++ { //Remove
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from Old is missing in New -> Remove from distant")
+							apiRemove(path + "/" + fN.Name() + "/" + strconv.Itoa(i))
+						}
+
+						for i := min(len(arrSN), len(arrSO)); i < len(arrSN); i++ { //Ajout
+							list[i] = arrSN[i]
+							log.Debug("Key ", path+"/"+fN.Name()+"/"+strconv.Itoa(i), " from New is missing in Old -> Set To distant")
+							apiSet(path+"/"+fN.Name()+"/"+strconv.Itoa(i), arrSN[i])
+						}
+						mapR[fN.Name()] = list
+						continue
+					} else {
+						log.Debug("Is not a string array !")
+					}
+					//*/
 				}
-				//TODO handle array
+				//else {
 				mapR[fN.Name()] = fN.Value()
 				log.Debug("Key ", path+"/"+fN.Name(), " from New is not a struct and differ from Old -> Set To distant")
-				f := firego.New(baseURL+"/"+path+"/"+fN.Name(), nil)
-				f.Auth(authToken)
-				defer f.Unauth()
-				if err := f.Set(fN.Value()); err != nil {
-					log.Fatal(err)
-				}
+				apiSet(path+"/"+fN.Name(), fN.Value())
+				//}
 			}
-			//*/
-			//TODO maybe order array ?
 		} else {
 			//Debug log.Debug(path+"/"+fN.Name(), " seems to be identical")
 		}
@@ -158,6 +286,14 @@ func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) ma
 
 	log.Debug(mapR)
 	return mapR
+}
+
+func min(A, B int) int {
+	min := A
+	if A > B {
+		min = B
+	}
+	return min
 }
 
 /*
