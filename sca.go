@@ -15,7 +15,6 @@ import (
 	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	firego "gopkg.in/zabawaba99/firego.v1"
 )
 
 //TODO use a config file
@@ -256,12 +255,7 @@ func sendData(data *GlobalResponse) {
 
 	if oldData == nil {
 		log.Debug("Preparing set ...")
-		f := firego.New(baseURL+"/"+data.UUID, nil)
-		f.Auth(authToken)
-		defer f.Unauth()
-		if err := f.Set(data); err != nil {
-			log.Fatal(err)
-		}
+		apiSet(baseURL+"/"+data.UUID, data)
 		//Debug
 		bytes, _ := json.Marshal(data)
 		log.WithFields(log.Fields{
