@@ -28,11 +28,11 @@ type InterfaceResponse struct {
 
 //DockerResponse describe a docker host informations
 type DockerResponse struct {
-	Info       *docker.DockerInfo      `json:"Info,omitempty"`
-	Containers *[]docker.APIContainers `json:"Containers,omitempty"`
-	Images     *[]docker.APIImages     `json:"Images,omitempty"`
-	Volumes    *[]docker.Volume        `json:"Volumes,omitempty"`
-	Networks   *[]docker.Network       `json:"Networks,omitempty"`
+	Info       *docker.DockerInfo     `json:"Info,omitempty"`
+	Containers []docker.APIContainers `json:"Containers,omitempty"`
+	Images     []docker.APIImages     `json:"Images,omitempty"`
+	Volumes    []docker.Volume        `json:"Volumes,omitempty"`
+	Networks   []docker.Network       `json:"Networks,omitempty"`
 }
 
 //GlobalResponse object json

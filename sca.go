@@ -195,10 +195,10 @@ func getDockerData(client *docker.Client) *DockerResponse {
 
 	return &DockerResponse{
 		Info:       info,
-		Containers: &cnts,
-		Images:     &imgs,
-		Volumes:    &vols,
-		Networks:   &nets,
+		Containers: cnts,
+		Images:     imgs,
+		Volumes:    vols,
+		Networks:   nets,
 	}
 }
 func getCollectorData() *CollectorResponse {
@@ -254,18 +254,18 @@ func sendData(data *GlobalResponse) {
 	//j, _ := json.Marshal(data)
 	//log.Debugln(string(j))
 
-	f := firego.New(baseURL+"/"+data.UUID, nil)
-	f.Auth(authToken)
-	defer f.Unauth()
 	if oldData == nil {
 		log.Debug("Preparing set ...")
+		f := firego.New(baseURL+"/"+data.UUID, nil)
+		f.Auth(authToken)
+		defer f.Unauth()
 		if err := f.Set(data); err != nil {
 			log.Fatal(err)
 		}
 		//Debug
 		bytes, _ := json.Marshal(data)
 		log.WithFields(log.Fields{
-			"send_bytes": len(bytes),
+			"data_bytes": len(bytes),
 		}).Info("Sending complete messages")
 		//log.Debug(data)
 		oldData = data //Save state
@@ -277,10 +277,14 @@ func sendData(data *GlobalResponse) {
 		}
 		//Debug
 		bytes, _ := json.Marshal(data)
-		cleanData := removeDuplicateData("", structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
-		if err := f.Update(cleanData); err != nil {
-			log.Fatal(err)
-		}
+		/*
+			cleanData := removeDuplicateData("", structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
+			if err := f.Update(cleanData); err != nil {
+				log.Fatal(err)
+			}
+		*/
+		cleanData := sendDeDuplicateData(data.UUID, structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
+
 		//Debug
 		cleanBytes, _ := json.Marshal(cleanData)
 		log.WithFields(log.Fields{

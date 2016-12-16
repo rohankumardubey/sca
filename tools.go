@@ -12,6 +12,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	firego "gopkg.in/zabawaba99/firego.v1"
 )
 
 //ByContainerID sort class
@@ -59,63 +60,99 @@ func sortedKeys(m map[string]interface{}) []string {
 	sort.Strings(keys)
 	return keys
 }
-func removeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) map[string]interface{} {
+func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) map[string]interface{} { //map[string]interface{}
 	//sR := structs.Struct{}
 	mapR := map[string]interface{}{}
 	//keysO := sortedKeys(mapO)
 	//keysN := sortedKeys(mapN)
 	for _, fO := range sO.Fields() { //Keys in old obj
-		log.Debug("Parsing key ", path+"/"+fO.Name(), " in Old")
+		//Debug log.Debug("Parsing key ", path+"/"+fO.Name(), " in Old")
 		//vO := mapO[kO]     //Valuer (interface)
 		//vN, ok := mapN[kO] //Check if key exist in New
 		_, ok := sN.FieldOk(fO.Name()) //Check if key exist in New
 		if !ok {                       //No key found
-			log.Debug("Key ", path+"/"+fO.Name(), " from Old is missing in New")
-			return sN.Map() //Send complete to update all object/array
+			log.Debug("Key ", path+"/"+fO.Name(), " from Old is missing in New -> Remove from distant")
+			f := firego.New(baseURL+"/"+path+"/"+fO.Name(), nil)
+			f.Auth(authToken)
+			defer f.Unauth()
+			if err := f.Remove(); err != nil {
+				log.Fatal(err)
+			}
+
+			//return sN.Map() //Send complete to update all object/array
 		}
 	}
 	for _, fN := range sN.Fields() { //Keys in new obj
-		log.Debug("Parsing key ", path+"/"+fN.Name(), " in New")
+		//Debug log.Debug("Parsing key ", path+"/"+fN.Name(), " in New")
 		//vN := fN.Value()                //Valuer (interface)
 		fO, ok := sO.FieldOk(fN.Name()) //Check if key exist in New
 		if !ok {                        //No key found in old
 			mapR[fN.Name()] = fN.Value() //Store in result
+			log.Debug("Key ", path+"/"+fN.Name(), " from New is missing in Old -> Set To distant")
+			f := firego.New(baseURL+"/"+path+"/"+fN.Name(), nil)
+			f.Auth(authToken)
+			defer f.Unauth()
+			if err := f.Set(fN.Value()); err != nil {
+				log.Fatal(err)
+			}
 			continue
 		}
 		if !reflect.DeepEqual(fO.Value(), fN.Value()) {
-			/*
-				switch path + "/" + fN.Name() {
-				case "/Docker":
-					if tmp, ok := (fN.Value()).(*DockerResponse); ok {
-						//vN := tmp
-						log.Debug(tmp)
-					} else {
-						panic("Error of format conversion")
-					}
-					if tmp, ok := (fO.Value()).(*DockerResponse); ok {
-						//vO := tmp
-						log.Debug(tmp)
-					} else {
-						panic("Error of format conversion")
-					}
-					break
-				}
-				//*/
 			log.Debug(path+"/"+fN.Name(), " seems to be different")
 			log.Debug(path+"/"+fN.Name(), " old kind ", fO.Kind(), " value ", fO.Value())
 			log.Debug(path+"/"+fN.Name(), " new kind ", fN.Kind(), " value ", fN.Value())
 			//*
 			if structs.IsStruct(fO.Value()) && structs.IsStruct(fN.Value()) {
 				log.Debug(path+"/"+fN.Name(), " is a struct")
-				mapR[fN.Name()] = removeDuplicateData(path+"/"+fN.Name(), structs.New(fO.Value()), structs.New(fN.Value())) //Store in result of parsing recursive
+				//mapR[fN.Name()] = removeDuplicateData(path+"/"+fN.Name(), structs.New(fO.Value()), structs.New(fN.Value())) //Store in result of parsing recursive
+				mapR[fN.Name()] = sendDeDuplicateData(path+"/"+fN.Name(), structs.New(fO.Value()), structs.New(fN.Value()))
 			} else {
 				log.Debug(path+"/"+fN.Name(), " is not a struct")
+				/*
+					if arr, ok := fN.Value().(slice); ok {
+						log.Debug("Is array !")
+						log.Debug(arr)
+					} else {
+						log.Debug("Not a array !")
+					}
+				*/
+				if fN.Kind() == reflect.Slice {
+					log.Debug("Is array !")
+					//TODO compare array like in jsondiff
+					/*
+						arrN, ok1 := fN.Value().([]docker.APIContainers)
+						arrO, ok2 := fO.Value().([]docker.APIContainers)
+						if ok1 && ok2 {
+							log.Debug("Is container array !")
+							//log.Debug(arr)
+							sort.Sort(ByContainerID(arrN))
+							sort.Sort(ByContainerID(arrO))
+							//TODO detect diff
+							mapR[fN.Name()] = []docker.APIContainers{}
+							for i := 0; i < int(math.Max(float64(len(arrN)), float64(len(arrO)))); i++ {
+								mapR[fN.Name()][i] = sendDeDuplicateData(path+"/"+fN.Name(), structs.New(arrO[i]), structs.New(arrN[i])) //TODO when not same size ?
+							}
+							mapR[fN.Name()] = list
+						} else {
+							log.Debug("Is not a container array !")
+						}
+					*/
+					//TODO same for images ...
+				}
+				//TODO handle array
 				mapR[fN.Name()] = fN.Value()
+				log.Debug("Key ", path+"/"+fN.Name(), " from New is not a struct and differ from Old -> Set To distant")
+				f := firego.New(baseURL+"/"+path+"/"+fN.Name(), nil)
+				f.Auth(authToken)
+				defer f.Unauth()
+				if err := f.Set(fN.Value()); err != nil {
+					log.Fatal(err)
+				}
 			}
 			//*/
 			//TODO maybe order array ?
 		} else {
-			log.Debug(path+"/"+fN.Name(), " seems to be identical")
+			//Debug log.Debug(path+"/"+fN.Name(), " seems to be identical")
 		}
 	}
 
