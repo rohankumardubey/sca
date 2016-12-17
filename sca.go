@@ -255,7 +255,8 @@ func sendData(data *GlobalResponse) {
 
 	if oldData == nil {
 		log.Debug("Preparing set ...")
-		apiSet(baseURL+"/"+data.UUID, data)
+		//apiSet(baseURL+"/"+data.UUID, data)
+		apiSet(data.UUID, data)
 		//Debug
 		bytes, _ := json.Marshal(data)
 		log.WithFields(log.Fields{

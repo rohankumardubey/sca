@@ -108,7 +108,7 @@ func sendDeDuplicateData(path string, sO *structs.Struct, sN *structs.Struct) ma
 			apiSet(path+"/"+fN.Name(), fN.Value())
 			continue
 		}
-		if !reflect.DeepEqual(fO.Value(), fN.Value()) {
+		if fN.IsExported() && fO.IsExported() && !reflect.DeepEqual(fO.Value(), fN.Value()) {
 			log.Debug(path+"/"+fN.Name(), " seems to be different")
 			log.Debug(path+"/"+fN.Name(), " old kind ", fO.Kind(), " value ", fO.Value())
 			log.Debug(path+"/"+fN.Name(), " new kind ", fN.Kind(), " value ", fN.Value())
