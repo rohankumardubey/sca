@@ -9,7 +9,7 @@ import (
 //TODO queu FIFO message in order to recover from tiemout and keep message in track
 
 func apiRemove(path string) {
-	f := firego.New(baseURL+"data/"+path, nil)
+	f := firego.New(baseURL+"/data/"+path, nil)
 	f.Auth(authToken)
 	defer f.Unauth()
 	if err := f.Remove(); err != nil {
@@ -18,7 +18,7 @@ func apiRemove(path string) {
 }
 
 func apiSet(path string, data interface{}) {
-	f := firego.New(baseURL+"data/"+path, nil)
+	f := firego.New(baseURL+"/data/"+path, nil)
 	//log.Debug("F set url:" + baseURL + "/" + path)
 	f.Auth(authToken)
 	//log.Debug("F token set token:" + authToken)
