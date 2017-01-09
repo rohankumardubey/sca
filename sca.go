@@ -2,76 +2,48 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net"
-	"os"
-	"reflect"
-	"strings"
 	"time"
 
-	"github.com/fatih/structs"
-	docker "github.com/fsouza/go-dockerclient"
-	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/sapk/sca/pkg"
+	"github.com/sapk/sca/pkg/api"
+	"github.com/sapk/sca/pkg/module"
 )
 
 //TODO use a config file
 //TODO optimize data transfert to update only needed data
 //TODO watch docker event
 
-const (
-	//VerboseFlag flag to set more verbose level
-	VerboseFlag = "verbose"
-	//EndpointFlag flag to set the endpoint to use (default: unix:///var/run/docker.sock)
-	EndpointFlag = "endpoint"
-	//EndpointEnv env to set endpoint of docker
-	EndpointEnv = "DOCKER_HOST"
-	//TimeoutFlag flag to set timeout period
-	TimeoutFlag = "timeout"
-	//TokenFlag flag to set firebase token
-	TokenFlag = "token"
-	//APIFlag flag to set firebase api key
-	APIFlag = "api"
-	//BaseURLFlag flag to set firebase url
-	BaseURLFlag = "url"
-	longHelp    = `
-sca (Simple Collector Agent)
-Collect local data and forward them to a realtime database.
-== Version: %s - Hash: %s ==
-`
-)
-
 var (
 	//Version version of running code
 	version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
-	hash    = ""
+	commit  = "none"    // By default use none but will be set at build time on release -X main.commit=$(shell git log -q -1 | head -n 1 | cut -f2 -d' ')
 
-	client  *docker.Client
-	oldData *GlobalResponse
-
-	authToken    string
 	refreshToken string
 	baseURL      string
 	apiKey       string
 
-	timeout   time.Duration
-	startTime = time.Now()
+	timeout time.Duration
 
 	cmd = &cobra.Command{
 		Use:              "sca",
 		Short:            "Simple Collector Agent",
-		Long:             longHelp,
-		PersistentPreRun: setupLogger,
+		Long:             pkg.LongHelp,
+		PersistentPreRun: pkg.SetupLogger,
 	}
 	infoCmd = &cobra.Command{
 		Use:   "info",
 		Short: "Display one-time collected informations in term for testing",
 		Run: func(cmd *cobra.Command, args []string) {
-			client := initClient(cmd, args)
-			j, _ := json.MarshalIndent(getData(client), "", "  ")
-			//j, _ := json.Marshal(getData(client))
+			options := map[string]string{
+				"version": version,
+				"commit":  commit,
+			}
+			modules := module.GetList(options)
+			j, _ := json.MarshalIndent(getData(modules), "", "  ")
 			fmt.Println(string(j))
 		},
 	}
@@ -84,38 +56,32 @@ var (
 		Use:   "version",
 		Short: "Display current version and build date",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Version: %s - Hash: %s\n", version, hash)
+			fmt.Printf("Version: %s - Commit: %s\n", version, commit)
 		},
 	}
 )
 
 func main() {
 	setupFlags()
-	//*
-	h, err := getHash(os.Args[0])
-	if err != nil {
-		panic(err)
-	}
-	hash = h
-	/**/
-	cmd.Long = fmt.Sprintf(longHelp, version, hash)
+	cmd.Long = fmt.Sprintf(pkg.LongHelp, version, commit)
 	cmd.AddCommand(versionCmd, infoCmd, daemonCmd)
 	cmd.Execute()
 }
 
 func setupFlags() {
-	cmd.PersistentFlags().BoolP(VerboseFlag, "v", false, "Turns on verbose logging")
-	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
+	cmd.PersistentFlags().BoolP(pkg.VerboseFlag, "v", false, "Turns on verbose logging")
+	cmd.PersistentFlags().StringP(pkg.EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 
-	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "r", 1*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
-	daemonCmd.Flags().StringVarP(&refreshToken, TokenFlag, "t", "", "Firebase authentification token")
-	daemonCmd.Flags().StringVarP(&baseURL, BaseURLFlag, "u", "", "Firebase base url")
-	daemonCmd.Flags().StringVarP(&apiKey, APIFlag, "k", "", "Firebase api key")
-	//TODO Setup a list modules to load like modules=host,collector,docker ...
+	daemonCmd.Flags().DurationVarP(&timeout, pkg.TimeoutFlag, "r", 1*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
+	daemonCmd.Flags().StringVarP(&refreshToken, pkg.TokenFlag, "t", "", "Firebase authentification token")
+	daemonCmd.Flags().StringVarP(&baseURL, pkg.BaseURLFlag, "u", "", "Firebase base url")
+	daemonCmd.Flags().StringVarP(&apiKey, pkg.APIFlag, "k", "", "Firebase api key")
+	//TODO Setup a list modules to enable like modules=host,collector,docker ...
 	//TODO add flag to force UUID
 }
 
-func initClient(cmd *cobra.Command, args []string) *docker.Client {
+/*
+func initDockerClient(cmd *cobra.Command, args []string) *docker.Client {
 	//TODO detect if remote and SSL
 	endpoint := typeOrEnv(cmd, EndpointFlag, EndpointEnv)
 	client, err := docker.NewClient(endpoint)
@@ -124,6 +90,7 @@ func initClient(cmd *cobra.Command, args []string) *docker.Client {
 	}
 	return client
 }
+
 func getDockerData(client *docker.Client) *DockerResponse {
 
 	//Get images
@@ -208,12 +175,7 @@ func getDockerData(client *docker.Client) *DockerResponse {
 func getCollectorData() *CollectorResponse {
 	return &CollectorResponse{
 		Version:    version,
-		StartTime:  startTime,
-		UpdateTime: time.Now(),
-		Hash:       hash,
-	}
-}
-func getHostData(client *docker.Client) *HostResponse {
+		StartTime:  startTime,stResponse {
 	hostname, err := os.Hostname()
 	if err != nil {
 		panic(err)
@@ -254,6 +216,9 @@ func getData(client *docker.Client) *GlobalResponse {
 	}
 }
 
+*/
+
+/*
 func sendData(data *GlobalResponse) {
 	//TODO update only needed data
 	//j, _ := json.Marshal(data)
@@ -278,12 +243,6 @@ func sendData(data *GlobalResponse) {
 		}
 		//Debug
 		bytes, _ := json.Marshal(data)
-		/*
-			cleanData := removeDuplicateData("", structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
-			if err := f.Update(cleanData); err != nil {
-				log.Fatal(err)
-			}
-		*/
 		cleanData := sendDeDuplicateData(data.UUID, structs.New(oldData), structs.New(data)) //removeDuplicateData(oldData, data) //cleanData(data) //Remove duplicate
 
 		//Debug
@@ -297,19 +256,31 @@ func sendData(data *GlobalResponse) {
 	}
 }
 
+*/
+
 func startDaemon(cmd *cobra.Command, args []string) {
-	if refreshToken == "" {
-		panic(errors.New("You need to set a refreshToken"))
+	api, err := api.New(apiKey, refreshToken, baseURL) //Init API
+	if err != nil {
+		log.Fatal("Fail to init API backend", err)
 	}
-	apiGetAuthToken()
-	//TODO monitor event and update data
-	client := initClient(cmd, args)
-	sendData(getData(client))
+	options := map[string]string{
+		"version": version,
+		"commit":  commit,
+	}
+	modules := module.GetList(options)
+	api.Send(getData(modules))
 
 	c := time.Tick(timeout)
 	for now := range c {
 		log.Debug("Timeout tick triggered ", now)
-		sendData(getData(client))
+		api.SendDeduplicate(getData(modules))
 	}
 	//func (c *Client) AddEventListener(listener chan<- *APIEvents) error
+}
+func getData(modules []module.Module) map[string]interface{} {
+	d := make(map[string]interface{})
+	for _, m := range modules {
+		d[m.ID()] = m.GetData()
+	}
+	return d
 }
