@@ -25,6 +25,13 @@ type refreshResponse struct {
 	ProjectID    string `json:"project_id"`
 }
 
+/*
+var (
+	//ErrAccessTokenTimeout represent a tiemout error response
+	ErrAccessTokenTimeout = errors.New("Auth token is expired")
+)
+*/
+
 //TODO detectr fail and replay
 //TODO queu FIFO message in order to recover from tiemout and keep message in track
 
@@ -38,10 +45,22 @@ func apiRemove(path string) {
 		// carry on
 	default:
 		if strings.Compare(err.Error(), "Auth token is expired") == 0 {
+			log.Info("Found token expires : strings.Compare")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
-			log.Fatal(err) //TODO handle all errors
+			switch err.Error() {
+			case "Auth token is expired":
+				log.Info("Found token expires : switch err.Error()")
+				apiGetAuthToken() //TODO get this request in the queue
+			default:
+				log.Fatal(err, err.Error()) //TODO handle all errors
+			}
 		}
+		/*
+			case ErrAccessTokenTimeout:
+				log.Info("Found token expires : ErrAccessTokenTimeout")
+				apiGetAuthToken()
+		*/
 		//case firego.EventTypeAuthRevoked:
 		//	apiGetAuthToken()
 	}
@@ -59,54 +78,28 @@ func apiSet(path string, data interface{}) {
 		// carry on
 	default:
 		if strings.Compare(err.Error(), "Auth token is expired") == 0 {
+			log.Info("Found token expires : strings.Compare")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
-			log.Fatal(err) //TODO handle all errors
+			switch err.Error() {
+			case "Auth token is expired":
+				log.Info("Found token expires : switch err.Error()")
+				apiGetAuthToken() //TODO get this request in the queue
+			default:
+				log.Fatal(err, err.Error()) //TODO handle all errors
+			}
 		}
-		//case firego.EventTypeAuthRevoked:
-		//	apiGetAuthToken()
+		/*
+			case ErrAccessTokenTimeout:
+				log.Info("Found token expires : ErrAccessTokenTimeout")
+				apiGetAuthToken()
+		*/
 	}
 	//log.Debug("F send success")
 }
 
 func apiGetAuthToken() {
-	log.Debug("Getting new Access Token ... ")
-	/*
-		var tr *http.Transport
-		tr = &http.Transport{
-			DisableKeepAlives: true, // https://code.google.com/p/go/issues/detail?id=3514
-			Dial: func(network, address string) (net.Conn, error) {
-				start := time.Now()
-				c, err := net.DialTimeout(network, address, fb.clientTimeout)
-				tr.ResponseHeaderTimeout = fb.clientTimeout - time.Since(start)
-				return c, err
-			},
-		}
-
-		client = &http.Client{
-			Transport:     tr,
-			CheckRedirect: redirectPreserveHeaders,
-		}
-		req, err := http.NewRequest(method, fb.String(), bytes.NewReader(body))
-		if err != nil {
-			return nil, err
-		}
-		resp, err := client.Do(req)
-	*/
-	/*
-		  url := fmt.Sprintf("https://securetoken.googleapis.com/v1/token?key=%s", apiKey)
-			req, err := http.NewRequest("POST", url, nil)
-			if err != nil {
-				log.Fatal("NewRequest: ", err)
-				return
-			}
-			client := &http.Client{}
-			resp, err := client.Do(req)
-			if err != nil {
-				log.Fatal("Do: ", err)
-				return
-			}
-	*/
+	log.Info("Getting new Access Token ... ")
 	payload, err := json.Marshal(refreshRequest{
 		GrantType:    "refresh_token",
 		RefreshToken: refreshToken,

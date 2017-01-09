@@ -107,7 +107,7 @@ func setupFlags() {
 	cmd.PersistentFlags().BoolP(VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 
-	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
+	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "r", 1*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
 	daemonCmd.Flags().StringVarP(&refreshToken, TokenFlag, "t", "", "Firebase authentification token")
 	daemonCmd.Flags().StringVarP(&baseURL, BaseURLFlag, "u", "", "Firebase base url")
 	daemonCmd.Flags().StringVarP(&apiKey, APIFlag, "k", "", "Firebase api key")
