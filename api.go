@@ -44,8 +44,8 @@ func apiRemove(path string) {
 	case nil:
 		// carry on
 	default:
-		if strings.Compare(err.Error(), "Auth token is expired") == 0 {
-			log.Info("Found token expires : strings.Compare")
+		if strings.Contains(err.Error(), "Auth token is expired") == 0 {
+			log.Info("Found token expires : strings.Contains")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
 			switch err.Error() {
@@ -77,8 +77,8 @@ func apiSet(path string, data interface{}) {
 	case nil:
 		// carry on
 	default:
-		if strings.Compare(err.Error(), "Auth token is expired") == 0 {
-			log.Info("Found token expires : strings.Compare")
+		if strings.Contains(err.Error(), "Auth token is expired") == 0 {
+			log.Info("Found token expires : strings.Contains")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
 			switch err.Error() {
