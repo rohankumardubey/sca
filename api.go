@@ -25,13 +25,6 @@ type refreshResponse struct {
 	ProjectID    string `json:"project_id"`
 }
 
-/*
-var (
-	//ErrAccessTokenTimeout represent a tiemout error response
-	ErrAccessTokenTimeout = errors.New("Auth token is expired")
-)
-*/
-
 //TODO detectr fail and replay
 //TODO queu FIFO message in order to recover from tiemout and keep message in track
 
@@ -48,21 +41,8 @@ func apiRemove(path string) {
 			log.Info("Found token expires : strings.Contains")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
-			switch err.Error() {
-			case "{\n  \"error\" : \"Auth token is expired\"\n}":
-				log.Info("Found token expires : switch err.Error()")
-				apiGetAuthToken() //TODO get this request in the queue
-			default:
-				log.Fatal(err, err.Error()) //TODO handle all errors
-			}
+			log.Fatal(err) //TODO handle all errors
 		}
-		/*
-			case ErrAccessTokenTimeout:
-				log.Info("Found token expires : ErrAccessTokenTimeout")
-				apiGetAuthToken()
-		*/
-		//case firego.EventTypeAuthRevoked:
-		//	apiGetAuthToken()
 	}
 }
 
@@ -81,19 +61,8 @@ func apiSet(path string, data interface{}) {
 			log.Info("Found token expires : strings.Contains")
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
-			switch err.Error() {
-			case "{\n  \"error\" : \"Auth token is expired\"\n}":
-				log.Info("Found token expires : switch err.Error()")
-				apiGetAuthToken() //TODO get this request in the queue
-			default:
-				log.Fatal(err, err.Error()) //TODO handle all errors
-			}
+			log.Fatal(err) //TODO handle all errors
 		}
-		/*
-			case ErrAccessTokenTimeout:
-				log.Info("Found token expires : ErrAccessTokenTimeout")
-				apiGetAuthToken()
-		*/
 	}
 	//log.Debug("F send success")
 }

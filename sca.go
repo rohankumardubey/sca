@@ -207,9 +207,10 @@ func getDockerData(client *docker.Client) *DockerResponse {
 }
 func getCollectorData() *CollectorResponse {
 	return &CollectorResponse{
-		Version:   version,
-		StartTime: startTime,
-		Hash:      hash,
+		Version:    version,
+		StartTime:  startTime,
+		UpdateTime: time.Now(),
+		Hash:       hash,
 	}
 }
 func getHostData(client *docker.Client) *HostResponse {
