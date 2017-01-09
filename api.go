@@ -49,7 +49,7 @@ func apiRemove(path string) {
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
 			switch err.Error() {
-			case "Auth token is expired":
+			case "{\n  \"error\" : \"Auth token is expired\"\n}":
 				log.Info("Found token expires : switch err.Error()")
 				apiGetAuthToken() //TODO get this request in the queue
 			default:
@@ -82,7 +82,7 @@ func apiSet(path string, data interface{}) {
 			apiGetAuthToken() //TODO get this request in the queue
 		} else {
 			switch err.Error() {
-			case "Auth token is expired":
+			case "{\n  \"error\" : \"Auth token is expired\"\n}":
 				log.Info("Found token expires : switch err.Error()")
 				apiGetAuthToken() //TODO get this request in the queue
 			default:
