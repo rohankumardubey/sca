@@ -32,6 +32,8 @@ const (
 	TimeoutFlag = "timeout"
 	//TokenFlag flag to set firebase token
 	TokenFlag = "token"
+	//APIFlag flag to set firebase api key
+	APIFlag = "api"
 	//BaseURLFlag flag to set firebase url
 	BaseURLFlag = "url"
 	longHelp    = `
@@ -49,8 +51,10 @@ var (
 	client  *docker.Client
 	oldData *GlobalResponse
 
-	authToken string
-	baseURL   string
+	authToken    string
+	refreshToken string
+	baseURL      string
+	apiKey       string
 
 	timeout   time.Duration
 	startTime = time.Now()
@@ -104,8 +108,9 @@ func setupFlags() {
 	cmd.PersistentFlags().StringP(EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 
 	daemonCmd.Flags().DurationVarP(&timeout, TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
-	daemonCmd.Flags().StringVarP(&authToken, TokenFlag, "t", "", "Firebase authentification token")
+	daemonCmd.Flags().StringVarP(&refreshToken, TokenFlag, "t", "", "Firebase authentification token")
 	daemonCmd.Flags().StringVarP(&baseURL, BaseURLFlag, "u", "", "Firebase base url")
+	daemonCmd.Flags().StringVarP(&apiKey, APIFlag, "k", "", "Firebase api key")
 	//TODO Setup a list modules to load like modules=host,collector,docker ...
 	//TODO add flag to force UUID
 }
@@ -292,9 +297,10 @@ func sendData(data *GlobalResponse) {
 }
 
 func startDaemon(cmd *cobra.Command, args []string) {
-	if authToken == "" {
-		panic(errors.New("You need to set a auth token"))
+	if refreshToken == "" {
+		panic(errors.New("You need to set a refreshToken"))
 	}
+	apiGetAuthToken()
 	//TODO monitor event and update data
 	client := initClient(cmd, args)
 	sendData(getData(client))
