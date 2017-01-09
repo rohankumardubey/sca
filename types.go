@@ -9,9 +9,10 @@ import (
 
 //CollectorResponse describe collector informations
 type CollectorResponse struct {
-	Version   string    `json:"Version,omitempty"`
-	StartTime time.Time `json:"StartTime,omitempty"`
-	Hash      string    `json:"Hash,omitempty"`
+	Version    string    `json:"Version,omitempty"`
+	StartTime  time.Time `json:"StartTime,omitempty"`
+	UpdateTime time.Time `json:"UpdateTime,omitempty"`
+	Hash       string    `json:"Hash,omitempty"`
 }
 
 //HostResponse describe host informations
