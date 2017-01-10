@@ -2,9 +2,11 @@ package docker
 
 //TODO monitor event and update data
 import (
+	"sort"
 	"strings"
 
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/sapk/sca/pkg"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +61,6 @@ func (d *Module) GetData() interface{} {
 		Images:     d.getImages(),
 	}
 }
-
 func (d *Module) getInfo() *docker.DockerInfo {
 	//Get server info
 	info, err := d.Client.Info()
@@ -95,6 +96,7 @@ func (d *Module) getImages() []docker.APIImages {
 			imgs[id].Labels = tmp
 		}
 	}
+	sort.Sort(pkg.ByIID(imgs))
 	return imgs
 }
 
@@ -126,6 +128,7 @@ func (d *Module) getNetworks() []docker.Network {
 			nets[id].Labels = tmp
 		}
 	}
+	sort.Sort(pkg.ByNID(nets))
 	return nets
 }
 
@@ -149,6 +152,7 @@ func (d *Module) getContainers() []docker.APIContainers {
 			cnts[id].Labels = tmp
 		}
 	}
+	sort.Sort(pkg.ByCID(cnts))
 	return cnts
 }
 
@@ -163,5 +167,6 @@ func (d *Module) getVolumes() []docker.Volume {
 		}).Warn("Failed to get docker volume list")
 		return nil
 	}
+	sort.Sort(pkg.ByVName(vols))
 	return vols
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"sort"
 
+	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,34 @@ func SetupLogger(cmd *cobra.Command, args []string) {
 	}
 }
 
+//ByCID sort class
+type ByCID []docker.APIContainers
+
+func (b ByCID) Len() int           { return len(b) }
+func (b ByCID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b ByCID) Less(i, j int) bool { return b[i].ID < b[j].ID }
+
+//ByNID sort class
+type ByNID []docker.Network
+
+func (b ByNID) Len() int           { return len(b) }
+func (b ByNID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b ByNID) Less(i, j int) bool { return b[i].ID < b[j].ID }
+
+//ByIID sort class
+type ByIID []docker.APIImages
+
+func (b ByIID) Len() int           { return len(b) }
+func (b ByIID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b ByIID) Less(i, j int) bool { return b[i].ID < b[j].ID }
+
+//ByVName sort class
+type ByVName []docker.Volume
+
+func (b ByVName) Len() int           { return len(b) }
+func (b ByVName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b ByVName) Less(i, j int) bool { return b[i].Name < b[j].Name }
+
 /*
 //GetHash return hash of a file
 func GetHash(filePath string) (result string, err error) {
@@ -60,33 +89,4 @@ func GetHash(filePath string) (result string, err error) {
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
-*/
-/*
-//ByContainerID sort class
-type ByContainerID []docker.APIContainers
-
-func (a ByContainerID) Len() int           { return len(a) }
-func (a ByContainerID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByContainerID) Less(i, j int) bool { return a[i].ID < a[j].ID }
-
-//ByImageID sort class
-type ByImageID []docker.APIImages
-
-func (a ByImageID) Len() int           { return len(a) }
-func (a ByImageID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByImageID) Less(i, j int) bool { return a[i].ID < a[j].ID }
-
-//ByVolumeID sort class
-type ByVolumeID []docker.Volume
-
-func (a ByVolumeID) Len() int           { return len(a) }
-func (a ByVolumeID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByVolumeID) Less(i, j int) bool { return a[i].Name < a[j].Name }
-
-//ByNetworkID sort class
-type ByNetworkID []docker.Network
-
-func (a ByNetworkID) Len() int           { return len(a) }
-func (a ByNetworkID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByNetworkID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 */
