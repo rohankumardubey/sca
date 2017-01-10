@@ -81,6 +81,8 @@ func (d *Module) getInfo() *docker.DockerInfo {
 
 	//Sort Docker/Info/Swarm/RemoteManagers/X to ease optimisation on sync
 	sort.Sort(pkg.ByPeer(info.Swarm.RemoteManagers))
+	sort.Strings(info.Plugins.Network)
+	sort.Strings(info.Plugins.Volume)
 	return info
 }
 
