@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/json"
 	"os"
 	"sort"
 
@@ -73,6 +74,28 @@ type ByVName []docker.Volume
 func (b ByVName) Len() int           { return len(b) }
 func (b ByVName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 func (b ByVName) Less(i, j int) bool { return b[i].Name < b[j].Name }
+
+//ByPort sort class
+type ByPort []docker.APIPort
+
+func (b ByPort) Len() int      { return len(b) }
+func (b ByPort) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByPort) Less(i, j int) bool {
+	b1, _ := json.Marshal(b[i])
+	b2, _ := json.Marshal(b[j])
+	return string(b1) < string(b2)
+}
+
+//ByMount sort class
+type ByMount []docker.APIMount
+
+func (b ByMount) Len() int      { return len(b) }
+func (b ByMount) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByMount) Less(i, j int) bool {
+	b1, _ := json.Marshal(b[i])
+	b2, _ := json.Marshal(b[j])
+	return string(b1) < string(b2)
+}
 
 /*
 //GetHash return hash of a file
