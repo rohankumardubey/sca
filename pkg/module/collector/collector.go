@@ -16,6 +16,7 @@ const id = "Collector"
 type Module struct {
 	Version   string
 	Commit    string
+	DBFormat  string
 	StartTime int64
 }
 
@@ -23,6 +24,7 @@ type Module struct {
 type Response struct {
 	Version    string          `json:"Version,omitempty"`
 	Commit     string          `json:"Commit,omitempty"`
+	DBFormat   string          `json:"DBFormat,omitempty"`
 	StartTime  int64           `json:"StartTime,omitempty"`
 	UpdateTime int64           `json:"UpdateTime,omitempty"`
 	Status     collectorStatus `json:"Status,omitempty"`
@@ -34,7 +36,7 @@ func New(options map[string]string) *Module {
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], Commit: options["app.commit"]}
+	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], DBFormat: options["app.dbFormat"], Commit: options["app.commit"]}
 }
 
 //ID //TODO
@@ -47,6 +49,7 @@ func (c *Module) GetData() interface{} {
 	return Response{
 		Version:    c.Version,
 		Commit:     c.Commit,
+		DBFormat:   c.DBFormat,
 		StartTime:  c.StartTime,
 		UpdateTime: time.Now().Unix(),
 		Status:     getStatus(),

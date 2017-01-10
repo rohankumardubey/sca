@@ -21,8 +21,9 @@ import (
 
 var (
 	//Version version of running code
-	version = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
-	commit  = "none"    // By default use none but will be set at build time on release -X main.commit=$(shell git log -q -1 | head -n 1 | cut -f2 -d' ')
+	version  = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
+	commit   = "none"    // By default use none but will be set at build time on release -X main.commit=$(shell git log -q -1 | head -n 1 | cut -f2 -d' ')
+	dbFormat = "0"       //Used to evaluate compatibility with web UI
 
 	refreshToken string
 	baseURL      string
@@ -100,6 +101,7 @@ func getOptions() map[string]string {
 	return map[string]string{
 		"app.version":     version,
 		"app.commit":      commit,
+		"app.dbFormat":    dbFormat,
 		"docker.endpoint": dockerEndpoint,
 	}
 }
