@@ -12,6 +12,7 @@ import (
 	"github.com/sapk/sca/pkg"
 	"github.com/sapk/sca/pkg/api"
 	"github.com/sapk/sca/pkg/module"
+	"github.com/sapk/sca/pkg/tool"
 )
 
 //TODO use a config file
@@ -35,7 +36,7 @@ var (
 		Use:              "sca",
 		Short:            "Simple Collector Agent",
 		Long:             pkg.LongHelp,
-		PersistentPreRun: pkg.SetupLogger,
+		PersistentPreRun: tool.SetupLogger,
 	}
 	infoCmd = &cobra.Command{
 		Use:   "info",

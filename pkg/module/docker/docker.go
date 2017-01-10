@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/sapk/sca/pkg"
+	"github.com/sapk/sca/pkg/tool"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -80,7 +80,7 @@ func (d *Module) getInfo() *docker.DockerInfo {
 	info.RegistryConfig.IndexConfigs = tmp
 
 	//Sort Docker/Info/Swarm/RemoteManagers/X to ease optimisation on sync
-	sort.Sort(pkg.ByPeer(info.Swarm.RemoteManagers))
+	sort.Sort(tool.ByPeer(info.Swarm.RemoteManagers))
 	sort.Strings(info.Plugins.Network)
 	sort.Strings(info.Plugins.Volume)
 	return info
@@ -101,7 +101,7 @@ func (d *Module) getImages() []docker.APIImages {
 			imgs[id].Labels = tmp
 		}
 	}
-	sort.Sort(pkg.ByIID(imgs))
+	sort.Sort(tool.ByIID(imgs))
 	return imgs
 }
 
@@ -133,7 +133,7 @@ func (d *Module) getNetworks() []docker.Network {
 			nets[id].Labels = tmp
 		}
 	}
-	sort.Sort(pkg.ByNID(nets))
+	sort.Sort(tool.ByNID(nets))
 	return nets
 }
 
@@ -157,11 +157,11 @@ func (d *Module) getContainers() []docker.APIContainers {
 			cnts[id].Labels = tmp
 		}
 		//Sort Docker/Containers/X/Mounts/X to ease optimisation on sync
-		sort.Sort(pkg.ByMount(c.Mounts))
+		sort.Sort(tool.ByMount(c.Mounts))
 		//Sort Docker/Containers/X/Ports/X to ease optimisation on sync
-		sort.Sort(pkg.ByPort(c.Ports))
+		sort.Sort(tool.ByPort(c.Ports))
 	}
-	sort.Sort(pkg.ByCID(cnts))
+	sort.Sort(tool.ByCID(cnts))
 	return cnts
 }
 
@@ -176,6 +176,6 @@ func (d *Module) getVolumes() []docker.Volume {
 		}).Warn("Failed to get docker volume list")
 		return nil
 	}
-	sort.Sort(pkg.ByVName(vols))
+	sort.Sort(tool.ByVName(vols))
 	return vols
 }
