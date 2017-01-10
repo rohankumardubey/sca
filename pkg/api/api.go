@@ -65,12 +65,11 @@ func sizeOfJSON(data map[string]interface{}) int {
 //Send //TODO
 func (a *API) Send(data map[string]interface{}) error {
 	if a._data == nil { //No data of backend so sending the complet obj
-		a.set(data["UUID"].(string), data)
+		a._data = a.set(data["UUID"].(string), data).(map[string]interface{}) //Save state
 		//TODO -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
 		log.WithFields(log.Fields{
 			"data_bytes": sizeOfJSON(data), //Debug
 		}).Info("Add complete messages to queue")
-		a._data = data //Save state
 	} else {
 		if reflect.DeepEqual(a._data, data) {
 			log.Info("Nothing to update data are identical from last send.")
@@ -78,7 +77,7 @@ func (a *API) Send(data map[string]interface{}) error {
 		}
 		//Debug
 		sizeBeforeCleaning := sizeOfJSON(data)
-		cleanData := a.sendDeDuplicateData(data["UUID"].(string), a._data, data)
+		cleanData, sendedData := a.sendDeDuplicateData(data["UUID"].(string), a._data, data)
 		//TODO at each step -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
 		sizeAfterCleaning := sizeOfJSON(cleanData)
 		log.WithFields(log.Fields{
@@ -86,7 +85,7 @@ func (a *API) Send(data map[string]interface{}) error {
 			"send_bytes": sizeAfterCleaning,
 		}).Info("Sending update messages")
 		//log.Debug(cleanData)
-		a._data = data //Save state
+		a._data = sendedData //Save state
 	}
 	//queue.Enqueue(data)
 	return nil
@@ -118,9 +117,19 @@ func (a *API) set(path string, data interface{}) interface{} {
 			}
 			return a.set(path, data)
 			//TODO get this request in the queue not redo
+		}
+		if strings.Contains(err.Error(), "Internal server error.") {
+			log.WithFields(log.Fields{
+				"api.AccessToken": a.AccessToken,
+				"path":            path,
+				"data":            data,
+				"err":             err,
+			}).Warning("API respond with : Internal server error. -> skipping update")
+			return a._data //We will skip this update and keep old value in memory
+			//Maybe retry ?
 		} //else {
 		log.WithFields(log.Fields{
-			"api":  a,
+			//"api":  a,
 			"path": path,
 			"data": data,
 			"err":  err,
@@ -145,7 +154,7 @@ func (a *API) remove(path string) {
 	default:
 		if strings.Contains(err.Error(), "Auth token is expired") {
 			log.WithFields(log.Fields{
-				"api": a,
+				"api.AccessToken": a.AccessToken,
 			}).Debug("Auth token is expired -> re-newing AccessToken")
 			a.AccessToken, err = apiGetAuthToken(a.APIKey, a.RefreshToken)
 			if err != nil {
@@ -157,7 +166,7 @@ func (a *API) remove(path string) {
 			//TODO get this request in the queue not redo
 		} else {
 			log.WithFields(log.Fields{
-				"api":  a,
+				//"api":  a,
 				"path": path,
 				"err":  err,
 			}).Fatal("Unhandled error in api.remove()") //TODO handle all errors
@@ -165,13 +174,14 @@ func (a *API) remove(path string) {
 	}
 }
 
-func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new map[string]interface{}) map[string]interface{} {
+func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
 	log.WithFields(log.Fields{
 		"path": path,
 		//"old":  old,
 		//"new": new,
 	}).Debug("API.sendDeDuplicateData")
 	ret := map[string]interface{}{}
+	realRet := map[string]interface{}{}
 
 	//Remove old key not in new
 	for key := range old {
@@ -184,25 +194,20 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 	for key, newValue := range new {
 		if oldValue, ok := old[key]; !ok { //Key not in old we should set
 			ret[key] = a.set(path+"/"+key, newValue)
+			realRet[key] = ret[key]
 		} else { //Key is in new and old -> we recurse or set if final obj differ
 			if !reflect.DeepEqual(oldValue, newValue) { //new differ from old
 				if structs.IsStruct(oldValue) && structs.IsStruct(newValue) { //We have a object -> rescursive
-					ret[key] = a.sendDeDuplicateData(path+"/"+key, structs.Map(oldValue), structs.Map(newValue)) //Store in result for stat
+					ret[key], realRet[key] = a.sendDeDuplicateData(path+"/"+key, structs.Map(oldValue), structs.Map(newValue)) //Store in result for stat
 				} else {
 					switch newValue.(type) {
-					case int:
+					case int, int64, string, []string: //Simple array are ordered so if there a diff we update
 						ret[key] = a.set(path+"/"+key, newValue)
-					case int64:
-						ret[key] = a.set(path+"/"+key, newValue)
-					case string:
-						ret[key] = a.set(path+"/"+key, newValue)
-					case []string:
-						// t is of type array/slice
-						ret[key] = a.set(path+"/"+key, newValue)
-						//TODO send only necessary update
+						realRet[key] = ret[key]
 					case [][2]string:
 						// t is of type array/slice
 						ret[key] = a.set(path+"/"+key, newValue)
+						realRet[key] = ret[key]
 						//TODO send only necessary update
 					case []interface{}:
 						// t is of type array/slice
@@ -210,13 +215,14 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 						oldValueArr := oldValue.([]interface{})
 						commonMin := pkg.Min(len(newValueArr), len(oldValueArr))
 						list := make([]interface{}, len(newValueArr))
+						listR := make([]interface{}, len(newValueArr))
 						for i := 0; i < commonMin; i++ { //Compare common
 							if structs.IsStruct(oldValueArr[i]) && structs.IsStruct(newValueArr[i]) { //We have a object -> rescursive
-								list[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), structs.Map(oldValueArr[i]), structs.Map(newValueArr[i]))
+								list[i], listR[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), structs.Map(oldValueArr[i]), structs.Map(newValueArr[i]))
 							} else {
 								switch newValueArr[i].(type) {
 								case map[string]interface{}: //Allready map
-									list[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), oldValueArr[i].(map[string]interface{}), newValueArr[i].(map[string]interface{}))
+									list[i], listR[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), oldValueArr[i].(map[string]interface{}), newValueArr[i].(map[string]interface{}))
 								default: //Force update
 									log.WithFields(log.Fields{
 										//"api":  a,
@@ -224,6 +230,7 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 										"data": newValueArr[i],
 									}).Debug("Force api.set() on data since it seems to not be a struct")
 									list[i] = a.set(path+"/"+key+"/"+strconv.Itoa(i), newValueArr[i])
+									listR[i] = list[i]
 								}
 							}
 						}
@@ -232,6 +239,7 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 						}
 						for i := commonMin; i < len(newValueArr); i++ { //Add
 							list[i] = a.set(path+"/"+key+"/"+strconv.Itoa(i), newValueArr[i])
+							listR[i] = list[i]
 							/*
 								log.WithFields(log.Fields{
 									//"api":  a,
@@ -241,9 +249,10 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 							*/
 						}
 						ret[key] = list
+						realRet[key] = listR
 					case map[string]interface{}:
 						//q.Q(path, newValue)
-						ret[key] = a.sendDeDuplicateData(path+"/"+key, oldValue.(map[string]interface{}), newValue.(map[string]interface{})) //Store in result for stat
+						ret[key], realRet[key] = a.sendDeDuplicateData(path+"/"+key, oldValue.(map[string]interface{}), newValue.(map[string]interface{})) //Store in result for stat
 					default:
 						//q.Q(path, newValue)
 						log.WithFields(log.Fields{
@@ -252,10 +261,14 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 							//"new":  new,
 						}).Warn("Unhandled type in api.sendDeDuplicateData() falling back to coping all object") //TODO handle all type
 						ret[key] = a.set(path+"/"+key, newValue)
+						realRet[key] = ret[key]
 					}
 				}
+			} else {
+				//Old and New are equal we update real global data object
+				realRet[key] = newValue
 			}
 		}
 	}
-	return ret
+	return ret, realRet
 }
