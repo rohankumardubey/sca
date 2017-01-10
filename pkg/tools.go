@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/docker/docker/api/types/swarm"
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -92,6 +93,17 @@ type ByMount []docker.APIMount
 func (b ByMount) Len() int      { return len(b) }
 func (b ByMount) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 func (b ByMount) Less(i, j int) bool {
+	b1, _ := json.Marshal(b[i])
+	b2, _ := json.Marshal(b[j])
+	return string(b1) < string(b2)
+}
+
+//ByPeer sort class
+type ByPeer []swarm.Peer
+
+func (b ByPeer) Len() int      { return len(b) }
+func (b ByPeer) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByPeer) Less(i, j int) bool {
 	b1, _ := json.Marshal(b[i])
 	b2, _ := json.Marshal(b[j])
 	return string(b1) < string(b2)

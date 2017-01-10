@@ -79,7 +79,8 @@ func (d *Module) getInfo() *docker.DockerInfo {
 	}
 	info.RegistryConfig.IndexConfigs = tmp
 
-	//Sort Docker/Info/Swarm/RemoteManagers/2/Addr
+	//Sort Docker/Info/Swarm/RemoteManagers/X to ease optimisation on sync
+	sort.Sort(pkg.ByPeer(info.Swarm.RemoteManagers))
 	return info
 }
 
@@ -153,7 +154,6 @@ func (d *Module) getContainers() []docker.APIContainers {
 			}
 			cnts[id].Labels = tmp
 		}
-
 		//Sort Docker/Containers/X/Mounts/X to ease optimisation on sync
 		sort.Sort(pkg.ByMount(c.Mounts))
 		//Sort Docker/Containers/X/Ports/X to ease optimisation on sync
