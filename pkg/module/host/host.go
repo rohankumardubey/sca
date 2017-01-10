@@ -13,7 +13,7 @@ const id = "Host"
 type Module struct {
 }
 
-//Response describe collector informations
+//Response describe hots informations
 type Response struct {
 	Name       string              `json:"Name,omitempty"`
 	Interfaces []InterfaceResponse `json:"Interfaces,omitempty"`
@@ -26,7 +26,7 @@ type InterfaceResponse struct {
 	Addrs []net.Addr    `json:"Addrs,omitempty"`
 }
 
-//New constructor for CollectorModule
+//New constructor for Module
 func New(options map[string]string) *Module {
 	log.WithFields(log.Fields{
 		"id":      id,
@@ -42,7 +42,7 @@ func (c *Module) ID() string {
 
 //GetData //TODO
 func (c *Module) GetData() interface{} {
-	hostname, err := os.Hostname() //TODO maybe cache it at buidl time ?
+	hostname, err := os.Hostname() //TODO maybe cache it at build time ?
 	if err != nil {
 		log.WithFields(log.Fields{
 			"hostname": hostname,
