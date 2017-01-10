@@ -11,7 +11,6 @@ import (
 	"github.com/oleiade/lane"
 	"github.com/sapk/sca/pkg"
 	log "github.com/sirupsen/logrus"
-	"github.com/y0ssar1an/q"
 	"github.com/zabawaba99/firego"
 )
 
@@ -119,15 +118,15 @@ func (a *API) set(path string, data interface{}) interface{} {
 			}
 			return a.set(path, data)
 			//TODO get this request in the queue not redo
-		} else {
-			log.WithFields(log.Fields{
-				"api":  a,
-				"path": path,
-				"data": data,
-				"err":  err,
-			}).Fatal("Unhandled error in api.set()") //TODO handle all errors
-			return nil
-		}
+		} //else {
+		log.WithFields(log.Fields{
+			"api":  a,
+			"path": path,
+			"data": data,
+			"err":  err,
+		}).Fatal("Unhandled error in api.set()") //TODO handle all errors
+		return nil
+		//}
 	}
 }
 
@@ -190,7 +189,7 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 				if structs.IsStruct(oldValue) && structs.IsStruct(newValue) { //We have a object -> rescursive
 					ret[key] = a.sendDeDuplicateData(path+"/"+key, structs.Map(oldValue), structs.Map(newValue)) //Store in result for stat
 				} else {
-					switch t := newValue.(type) {
+					switch newValue.(type) {
 					case int:
 						ret[key] = a.set(path+"/"+key, newValue)
 					case int64:
@@ -214,8 +213,18 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 						for i := 0; i < commonMin; i++ { //Compare common
 							if structs.IsStruct(oldValueArr[i]) && structs.IsStruct(newValueArr[i]) { //We have a object -> rescursive
 								list[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), structs.Map(oldValueArr[i]), structs.Map(newValueArr[i]))
-							} else { //Force update
-								list[i] = a.set(path+"/"+key+"/"+strconv.Itoa(i), newValueArr[i])
+							} else {
+								switch newValueArr[i].(type) {
+								case map[string]interface{}: //Allready map
+									list[i] = a.sendDeDuplicateData(path+"/"+key+"/"+strconv.Itoa(i), oldValueArr[i].(map[string]interface{}), newValueArr[i].(map[string]interface{}))
+								default: //Force update
+									log.WithFields(log.Fields{
+										//"api":  a,
+										"path": path + "/" + key + "/" + strconv.Itoa(i),
+										"data": newValueArr[i],
+									}).Debug("Force api.set() on data since it seems to not be a struct")
+									list[i] = a.set(path+"/"+key+"/"+strconv.Itoa(i), newValueArr[i])
+								}
 							}
 						}
 						for i := commonMin; i < len(oldValueArr); i++ { //Remove
@@ -223,18 +232,24 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 						}
 						for i := commonMin; i < len(newValueArr); i++ { //Add
 							list[i] = a.set(path+"/"+key+"/"+strconv.Itoa(i), newValueArr[i])
+							/*
+								log.WithFields(log.Fields{
+									//"api":  a,
+									"path": path + "/" + key + "/" + strconv.Itoa(i),
+									"data": newValueArr[i],
+								}).Debug("Force api.set() on data since it seems over old array size")
+							*/
 						}
 						ret[key] = list
 					case map[string]interface{}:
 						//q.Q(path, newValue)
 						ret[key] = a.sendDeDuplicateData(path+"/"+key, oldValue.(map[string]interface{}), newValue.(map[string]interface{})) //Store in result for stat
 					default:
-						q.Q(path, newValue)
+						//q.Q(path, newValue)
 						log.WithFields(log.Fields{
 							"path": path,
 							//"old":  old,
 							//"new":  new,
-							"type": t,
 						}).Warn("Unhandled type in api.sendDeDuplicateData() falling back to coping all object") //TODO handle all type
 						ret[key] = a.set(path+"/"+key, newValue)
 					}
