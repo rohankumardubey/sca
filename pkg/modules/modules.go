@@ -28,12 +28,15 @@ func Create(options map[string]string) *ModuleList {
 	c := make([]<-chan interface{}, len(list))
 	i := 0
 	for _, m := range list {
-		c[i] = channels.Wrap(m.Event()).Out()
-		i++
+		ch := m.Event()
+		if ch != nil {
+			c[i] = channels.Wrap(m.Event()).Out()
+			i++
+		}
 	}
 	return &ModuleList{
 		list:  list,
-		event: tools.MergeChan(c...),
+		event: tools.MergeChan(c[:(i - 1)]...),
 	}
 }
 

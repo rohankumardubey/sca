@@ -12,7 +12,7 @@ const id = "Host"
 
 //Module retrieve information form executing sca
 type Module struct {
-	event <-chan string
+	/* event <-chan string */
 }
 
 //Response describe hots informations
@@ -34,7 +34,7 @@ func New(options map[string]string) model.Module {
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	return &Module{event: make(<-chan string)}
+	return &Module{}
 }
 
 //ID //TODO
@@ -44,7 +44,7 @@ func (c *Module) ID() string {
 
 //Event return event chan
 func (c *Module) Event() <-chan string {
-	return c.event
+	return nil
 }
 
 //GetData //TODO

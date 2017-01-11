@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"strings"
 	"time"
 
 	"github.com/sapk/sca/pkg/model"
@@ -16,17 +17,19 @@ type Module struct {
 	Commit    string
 	DBFormat  string
 	StartTime int64
-	event     <-chan string
+	Config    map[string]string
+	/* event     <-chan string */
 }
 
 //Response describe collector informations
 type Response struct {
-	Version    string          `json:"Version,omitempty"`
-	Commit     string          `json:"Commit,omitempty"`
-	DBFormat   string          `json:"DBFormat,omitempty"`
-	StartTime  int64           `json:"StartTime,omitempty"`
-	UpdateTime int64           `json:"UpdateTime,omitempty"`
-	Status     collectorStatus `json:"Status,omitempty"`
+	Version    string            `json:"Version,omitempty"`
+	Commit     string            `json:"Commit,omitempty"`
+	DBFormat   string            `json:"DBFormat,omitempty"`
+	StartTime  int64             `json:"StartTime,omitempty"`
+	UpdateTime int64             `json:"UpdateTime,omitempty"`
+	Status     collectorStatus   `json:"Status,omitempty"`
+	Config     map[string]string `json:"Config,omitempty"`
 }
 
 //New constructor for Module
@@ -35,7 +38,7 @@ func New(options map[string]string) model.Module {
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], DBFormat: options["app.dbFormat"], Commit: options["app.commit"], event: make(<-chan string)}
+	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], DBFormat: options["app.dbFormat"], Commit: options["app.commit"], Config: getConfig(options) /* event: make(<-chan string)*/}
 }
 
 //ID //TODO
@@ -45,7 +48,19 @@ func (m *Module) ID() string {
 
 //Event return event chan
 func (m *Module) Event() <-chan string {
-	return m.event
+	return nil
+	//return m.event
+}
+
+func getConfig(options map[string]string) map[string]string {
+	tmp := make(map[string]string)
+	for id, conf := range options {
+		if strings.HasPrefix(id, "app.") {
+			continue
+		}
+		tmp[strings.Replace(id, ".", "-", -1)] = conf
+	}
+	return tmp
 }
 
 //GetData //TODO
@@ -57,5 +72,6 @@ func (m *Module) GetData() interface{} {
 		StartTime:  m.StartTime,
 		UpdateTime: time.Now().Unix(),
 		Status:     getStatus(),
+		Config:     m.Config,
 	}
 }

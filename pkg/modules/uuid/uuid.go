@@ -12,8 +12,7 @@ const id = "UUID"
 
 //Module retrieve information form executing sca
 type Module struct {
-	UUID  string
-	event <-chan string
+	UUID string
 }
 
 //Response describe collector informations
@@ -39,7 +38,7 @@ func New(options map[string]string) model.Module {
 			"err":  err,
 		}).Fatal("Failed to generate uuid")
 	}
-	return &Module{UUID: u5.String(), event: make(<-chan string)} //TODO use option to get a user or config (/etc/sca/uuid ?) defined uuid
+	return &Module{UUID: u5.String()} //TODO use option to get a user or config (/etc/sca/uuid ?) defined uuid
 }
 
 //ID //TODO
@@ -49,7 +48,7 @@ func (m *Module) ID() string {
 
 //Event return event chan
 func (m *Module) Event() <-chan string {
-	return m.event
+	return nil
 }
 
 //GetData //TODO
