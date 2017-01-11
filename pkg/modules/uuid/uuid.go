@@ -4,6 +4,7 @@ import (
 	"os"
 
 	uuid "github.com/nu7hatch/gouuid"
+	"github.com/sapk/sca/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -11,14 +12,15 @@ const id = "UUID"
 
 //Module retrieve information form executing sca
 type Module struct {
-	UUID string
+	UUID  string
+	event <-chan string
 }
 
 //Response describe collector informations
 type Response string
 
 //New constructor for Module
-func New(options map[string]string) *Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      id,
 		"options": options,
@@ -37,12 +39,17 @@ func New(options map[string]string) *Module {
 			"err":  err,
 		}).Fatal("Failed to generate uuid")
 	}
-	return &Module{UUID: u5.String()} //TODO use option to get a user or config (/etc/sca/uuid ?) defined uuid
+	return &Module{UUID: u5.String(), event: make(<-chan string)} //TODO use option to get a user or config (/etc/sca/uuid ?) defined uuid
 }
 
 //ID //TODO
 func (m *Module) ID() string {
 	return id
+}
+
+//Event return event chan
+func (m *Module) Event() <-chan string {
+	return m.event
 }
 
 //GetData //TODO

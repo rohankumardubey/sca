@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/sapk/sca/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -11,6 +12,7 @@ const id = "Host"
 
 //Module retrieve information form executing sca
 type Module struct {
+	event <-chan string
 }
 
 //Response describe hots informations
@@ -27,17 +29,22 @@ type InterfaceResponse struct {
 }
 
 //New constructor for Module
-func New(options map[string]string) *Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	return &Module{}
+	return &Module{event: make(<-chan string)}
 }
 
 //ID //TODO
 func (c *Module) ID() string {
 	return id
+}
+
+//Event return event chan
+func (c *Module) Event() <-chan string {
+	return c.event
 }
 
 //GetData //TODO

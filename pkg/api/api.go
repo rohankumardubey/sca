@@ -9,7 +9,7 @@ import (
 
 	"github.com/fatih/structs"
 	"github.com/oleiade/lane"
-	"github.com/sapk/sca/pkg/tool"
+	"github.com/sapk/sca/pkg/tools"
 	log "github.com/sirupsen/logrus"
 	"github.com/zabawaba99/firego"
 )
@@ -201,7 +201,7 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 					ret[key], realRet[key] = a.sendDeDuplicateData(path+"/"+key, structs.Map(oldValue), structs.Map(newValue)) //Store in result for stat
 				} else {
 					switch newValue.(type) {
-					case int, int32, int64, uint, uint32, uint64, string, []string: //Simple array are ordered so if there a diff we update
+					case bool, int, int32, int64, uint, uint32, uint64, float32, float64, string, []string: //Simple array are ordered so if there a diff we update
 						ret[key] = a.set(path+"/"+key, newValue)
 						realRet[key] = ret[key]
 					case [][2]string:
@@ -213,7 +213,7 @@ func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new m
 						// t is of type array/slice
 						newValueArr := newValue.([]interface{})
 						oldValueArr := oldValue.([]interface{})
-						commonMin := tool.Min(len(newValueArr), len(oldValueArr))
+						commonMin := tools.Min(len(newValueArr), len(oldValueArr))
 						list := make([]interface{}, len(newValueArr))
 						listR := make([]interface{}, len(newValueArr))
 						for i := 0; i < commonMin; i++ { //Compare common

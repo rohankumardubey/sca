@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/sapk/sca/pkg/tool"
+	"github.com/sapk/sca/pkg/model"
+	"github.com/sapk/sca/pkg/tools"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,6 +17,7 @@ const id = "Docker"
 type Module struct {
 	Endpoint string
 	Client   *docker.Client
+	event    <-chan string
 }
 
 //Response describe docker informations
@@ -28,7 +30,7 @@ type Response struct {
 }
 
 //New constructor for Module
-func New(options map[string]string) *Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      id,
 		"options": options,
@@ -42,12 +44,47 @@ func New(options map[string]string) *Module {
 		}).Warn("Failed to create docker client")
 		//return nil
 	}
-	return &Module{Endpoint: options["docker.endpoint"], Client: client}
+	return &Module{Endpoint: options["docker.endpoint"], Client: client, event: setListener(client)}
+}
+
+func setListener(client *docker.Client) <-chan string {
+	listener := make(chan *docker.APIEvents)
+	out := make(chan string)
+	err := client.AddEventListener(listener)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"client": client,
+			"err":    err,
+		}).Warn("Failed to set docker listener for event")
+	}
+	go func() {
+		for e := range listener {
+			//for range listener {
+			log.WithFields(log.Fields{
+				"event": e,
+			}).Debug("Module.Docker Receive event from docker client")
+			out <- id
+		}
+	}()
+	/*
+		defer func() {
+			err = client.RemoveEventListener(listener)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	*/
+	return out
 }
 
 //ID //TODO
 func (d *Module) ID() string {
 	return id
+}
+
+//Event return event chan
+func (d *Module) Event() <-chan string {
+	return d.event
 }
 
 //GetData //TODO
@@ -80,7 +117,7 @@ func (d *Module) getInfo() *docker.DockerInfo {
 	info.RegistryConfig.IndexConfigs = tmp
 
 	//Sort Docker/Info/Swarm/RemoteManagers/X to ease optimisation on sync
-	sort.Sort(tool.ByPeer(info.Swarm.RemoteManagers))
+	sort.Sort(tools.ByPeer(info.Swarm.RemoteManagers))
 	sort.Strings(info.Plugins.Network)
 	sort.Strings(info.Plugins.Volume)
 	return info
@@ -101,7 +138,7 @@ func (d *Module) getImages() []docker.APIImages {
 			imgs[id].Labels = tmp
 		}
 	}
-	sort.Sort(tool.ByIID(imgs))
+	sort.Sort(tools.ByIID(imgs))
 	return imgs
 }
 
@@ -133,7 +170,7 @@ func (d *Module) getNetworks() []docker.Network {
 			nets[id].Labels = tmp
 		}
 	}
-	sort.Sort(tool.ByNID(nets))
+	sort.Sort(tools.ByNID(nets))
 	return nets
 }
 
@@ -157,11 +194,11 @@ func (d *Module) getContainers() []docker.APIContainers {
 			cnts[id].Labels = tmp
 		}
 		//Sort Docker/Containers/X/Mounts/X to ease optimisation on sync
-		sort.Sort(tool.ByMount(c.Mounts))
+		sort.Sort(tools.ByMount(c.Mounts))
 		//Sort Docker/Containers/X/Ports/X to ease optimisation on sync
-		sort.Sort(tool.ByPort(c.Ports))
+		sort.Sort(tools.ByPort(c.Ports))
 	}
-	sort.Sort(tool.ByCID(cnts))
+	sort.Sort(tools.ByCID(cnts))
 	return cnts
 }
 
@@ -176,6 +213,6 @@ func (d *Module) getVolumes() []docker.Volume {
 		}).Warn("Failed to get docker volume list")
 		return nil
 	}
-	sort.Sort(tool.ByVName(vols))
+	sort.Sort(tools.ByVName(vols))
 	return vols
 }
