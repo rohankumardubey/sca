@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -47,4 +48,11 @@ func humanateBytes(s uint64, base float64, sizes []string) string {
 func FileSize(s int64) string {
 	sizes := []string{"B", "KB", "MB", "GB", "TB", "PB", "EB"}
 	return humanateBytes(uint64(s), 1024, sizes)
+}
+
+//SizeOfJSON cumpotue size on a map object
+func SizeOfJSON(data map[string]interface{}) int {
+	//Debug
+	bytes, _ := json.Marshal(data)
+	return len(bytes)
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strconv"
@@ -21,8 +20,8 @@ type API struct {
 	RefreshToken string
 	AccessToken  string
 	_data        map[string]interface{}
-	_queue       *lane.Queue
-	_update      chan bool
+	_queue       *lane.Deque
+	//_update      chan bool
 	//TODO add queue
 }
 
@@ -30,7 +29,7 @@ type API struct {
 type QueueItem struct {
 	Type string
 	Path string
-	Data map[string]interface{}
+	Data interface{}
 }
 
 //New constructor for API
@@ -55,22 +54,16 @@ func New(apiKey, refreshToken, baseURL string) (*API, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &API{APIKey: apiKey, BaseURL: baseURL, RefreshToken: refreshToken, AccessToken: accessToken, _queue: lane.NewQueue()}, nil
+	return &API{APIKey: apiKey, BaseURL: baseURL, RefreshToken: refreshToken, AccessToken: accessToken, _queue: lane.NewDeque()}, nil
 }
 
-func sizeOfJSON(data map[string]interface{}) int {
-	//Debug
-	bytes, _ := json.Marshal(data)
-	return len(bytes)
-}
-
-//Send //TODO
+//Send data to api with deduction of common value since last update
 func (a *API) Send(data map[string]interface{}) error {
 	if a._data == nil { //No data of backend so sending the complet obj
 		a._data = a.update(data["UUID"].(string), data).(map[string]interface{}) //Save state
 		//TODO -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
 		log.WithFields(log.Fields{
-			"data_bytes": sizeOfJSON(data), //Debug
+			"data_bytes": tools.SizeOfJSON(data), //Debug
 		}).Info("Add complete messages to queue")
 	} else {
 		if reflect.DeepEqual(a._data, data) {
@@ -78,10 +71,10 @@ func (a *API) Send(data map[string]interface{}) error {
 			return nil
 		}
 		//Debug
-		sizeBeforeCleaning := sizeOfJSON(data)
+		sizeBeforeCleaning := tools.SizeOfJSON(data)
 		cleanData, sendedData := a.sendDeDuplicateData(data["UUID"].(string), a._data, data)
 		//TODO at each step -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
-		sizeAfterCleaning := sizeOfJSON(cleanData)
+		sizeAfterCleaning := tools.SizeOfJSON(cleanData)
 		log.WithFields(log.Fields{
 			"data_bytes": sizeBeforeCleaning,
 			"send_bytes": sizeAfterCleaning,
@@ -89,117 +82,109 @@ func (a *API) Send(data map[string]interface{}) error {
 		//log.Debug(cleanData)
 		a._data = sendedData //Save state
 	}
-	//queue.Enqueue(data)
+
+	return a.executeQueue()
+}
+
+func (a *API) sendUpdate(updates map[string]interface{}) map[string]interface{} {
+	if len(updates) > 0 {
+		log.WithFields(log.Fields{
+			"size": len(updates),
+		}).Debug("sendUpdate") //Send update before set
+		a.exectue("UPDT", "", updates)
+		return map[string]interface{}{}
+	}
+	return updates
+}
+func (a *API) executeQueue() error {
+	updates := map[string]interface{}{}
+	size := a._queue.Size()
+
+	for i := 0; i < size; i++ {
+		value := a._queue.Shift()
+		item := value.(*QueueItem)
+		switch item.Type {
+		case "SET":
+			updates = a.sendUpdate(updates)
+			a.exectue("SET", item.Path, item.Data)
+		case "DEL":
+			updates = a.sendUpdate(updates)
+			a.exectue("DEL", item.Path, nil)
+		case "UPDT":
+			updates[item.Path] = item.Data
+		default:
+			log.WithFields(log.Fields{
+				"item": item,
+			}).Debug("Unhandled item type in queue.")
+		}
+	}
+	updates = a.sendUpdate(updates)
 	return nil
 }
 
-func (a *API) update(path string, data interface{}) interface{} {
-	log.WithFields(log.Fields{
-		"path": path,
-	}).Debug("API.update")
-	f := firego.New(a.BaseURL+"/data/", nil)
-	f.Auth(a.AccessToken)
-	defer f.Unauth()
-	values := map[string]interface{}{path: data}
-	err := f.Update(values)
-
-	switch err := err.(type) {
-	case nil:
-		return data
-	default:
-		if strings.Contains(err.Error(), "Auth token is expired") {
-			log.WithFields(log.Fields{
-				"api.AccessToken": a.AccessToken,
-			}).Debug("Auth token is expired -> re-newing AccessToken")
-			a.AccessToken, err = apiGetAuthToken(a.APIKey, a.RefreshToken)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"api": a,
-				}).Debug("Failed to re-new AccessToken")
-			}
-			return a.update(path, data)
-			//TODO get this request in the queue not redo
-		}
-		if strings.Contains(err.Error(), "Internal server error.") {
-			log.WithFields(log.Fields{
-				"api.AccessToken": a.AccessToken,
-				"path":            path,
-				"data":            data,
-				"err":             err,
-			}).Warning("API respond with : Internal server error. -> skipping update")
-			return a._data //We will skip this update and keep old value in memory
-			//Maybe retry ?
-		} //else {
-		log.WithFields(log.Fields{
-			//"api":  a,
-			"path": path,
-			"data": data,
-			"err":  err,
-		}).Fatal("Unhandled error in api.update()") //TODO handle all errors
-		return nil
-		//}
-	}
-}
 func (a *API) set(path string, data interface{}) interface{} {
 	log.WithFields(log.Fields{
-		//"api":  a,
-		"path": path,
-		//"data": data,
-	}).Debug("API.set")
-	f := firego.New(a.BaseURL+"/data/"+path, nil)
-	f.Auth(a.AccessToken)
-	defer f.Unauth()
-	err := f.Set(data)
-	switch err := err.(type) {
-	case nil:
-		return data
-	default:
-		if strings.Contains(err.Error(), "Auth token is expired") {
-			log.WithFields(log.Fields{
-				"api.AccessToken": a.AccessToken,
-			}).Debug("Auth token is expired -> re-newing AccessToken")
-			a.AccessToken, err = apiGetAuthToken(a.APIKey, a.RefreshToken)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"api": a,
-				}).Debug("Failed to re-new AccessToken")
-			}
-			return a.set(path, data)
-			//TODO get this request in the queue not redo
-		}
-		if strings.Contains(err.Error(), "Internal server error.") {
-			log.WithFields(log.Fields{
-				"api.AccessToken": a.AccessToken,
-				"path":            path,
-				"data":            data,
-				"err":             err,
-			}).Warning("API respond with : Internal server error. -> skipping set")
-			return a._data //We will skip this update and keep old value in memory
-			//Maybe retry ?
-		} //else {
-		log.WithFields(log.Fields{
-			//"api":  a,
-			"path": path,
-			"data": data,
-			"err":  err,
-		}).Fatal("Unhandled error in api.set()") //TODO handle all errors
-		return nil
-		//}
-	}
+		"path":      path,
+		"queueSize": a._queue.Size(),
+	}).Debug("API.set -> add to queue")
+	a._queue.Append(&QueueItem{
+		Type: "SET",
+		Path: path,
+		Data: data,
+	})
+	return data
 }
 
 func (a *API) remove(path string) {
 	log.WithFields(log.Fields{
-		//"api":  a,
-		"path": path,
-	}).Debug("API.remove")
+		"path":      path,
+		"queueSize": a._queue.Size(),
+	}).Debug("API.remove -> add to queue")
+	a._queue.Append(&QueueItem{
+		Type: "DEL",
+		Path: path,
+	})
+}
+
+func (a *API) update(path string, data interface{}) interface{} {
+	log.WithFields(log.Fields{
+		"path":      path,
+		"queueSize": a._queue.Size(),
+	}).Debug("API.update -> add to queue")
+	a._queue.Append(&QueueItem{
+		Type: "UPDT",
+		Path: path,
+		Data: data,
+	})
+	return data
+}
+
+func (a *API) exectue(method string, path string, data interface{}) {
+	log.WithFields(log.Fields{
+		//"api": a,
+		"method": method,
+		"path":   path,
+		//"keys":   data,
+		//"data":   data,
+	}).Debug("API.execute")
 	f := firego.New(a.BaseURL+"/data/"+path, nil)
 	f.Auth(a.AccessToken)
 	defer f.Unauth()
-	err := f.Remove()
+
+	var err error
+	switch method {
+	case "SET":
+		err = f.Set(data)
+	case "DEL":
+		err = f.Remove()
+	case "UPDT":
+		err = f.Update(data)
+	}
+
+	//Handleling errors
 	switch err := err.(type) {
 	case nil:
-		// carry on
+		return
 	default:
 		if strings.Contains(err.Error(), "Auth token is expired") {
 			log.WithFields(log.Fields{
@@ -211,16 +196,29 @@ func (a *API) remove(path string) {
 					"api": a,
 				}).Debug("Failed to re-new AccessToken")
 			}
-			a.remove(path)
-			//TODO get this request in the queue not redo
-		} else {
-			log.WithFields(log.Fields{
-				//"api":  a,
-				"path": path,
-				"err":  err,
-			}).Fatal("Unhandled error in api.remove()") //TODO handle all errors
+			a.exectue(method, path, data) //Redo
+			return
 		}
+		if strings.Contains(err.Error(), "Internal server error.") {
+			log.WithFields(log.Fields{
+				"api.AccessToken": a.AccessToken,
+				"method":          method,
+				"path":            path,
+				"data":            data,
+				"err":             err,
+			}).Warning("API respond with : Internal server error. -> skipping update")
+			//TODO force set of _data to do not have any inconsistency
+		} //else {
+		log.WithFields(log.Fields{
+			//"api":  a,
+			"method": method,
+			"path":   path,
+			"data":   data,
+			"err":    err,
+		}).Fatal("Unhandled error in api.execut()") //TODO handle all errors
+		return
 	}
+
 }
 
 func (a *API) sendDeDuplicateData(path string, old map[string]interface{}, new map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
