@@ -1,10 +1,9 @@
 package host
 
 import (
-	"net"
-	"os"
-
+	"github.com/sapk-fork/spwd/proc"
 	"github.com/sapk/sca/pkg/model"
+	os "github.com/sapk/sca/pkg/modules/host/linux"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -12,20 +11,7 @@ const id = "Host"
 
 //Module retrieve information form executing sca
 type Module struct {
-	/* event <-chan string */
-}
-
-//Response describe hots informations
-type Response struct {
-	Name       string              `json:"Name,omitempty"`
-	Interfaces []InterfaceResponse `json:"Interfaces,omitempty"`
-	//TODO add ressources IP, CPU, MEM
-}
-
-//InterfaceResponse describe interface informations
-type InterfaceResponse struct {
-	Info  net.Interface `json:"Info,omitempty"` //TODO add ressources IP, CPU, MEM
-	Addrs []net.Addr    `json:"Addrs,omitempty"`
+	Proc model.HostProc
 }
 
 //New constructor for Module
@@ -34,52 +20,22 @@ func New(options map[string]string) model.Module {
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	return &Module{}
+	p := proc.ProcAll{}
+	p.Init()
+	return &Module{Proc: &p}
 }
 
 //ID //TODO
-func (c *Module) ID() string {
+func (m *Module) ID() string {
 	return id
 }
 
 //Event return event chan
-func (c *Module) Event() <-chan string {
+func (m *Module) Event() <-chan string {
 	return nil
 }
 
 //GetData //TODO
-func (c *Module) GetData() interface{} {
-	hostname, err := os.Hostname() //TODO maybe cache it at build time ?
-	if err != nil {
-		log.WithFields(log.Fields{
-			"hostname": hostname,
-			"err":      err,
-		}).Warn("Failed to retrieve hostname")
-	}
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"ifaces": ifaces,
-			"err":    err,
-		}).Warn("Failed to retrieve host interfaces")
-	}
-	ints := make([]InterfaceResponse, len(ifaces))
-	for id, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"iface": i,
-				"addrs": addrs,
-				"err":   err,
-			}).Warn("Failed to retrieve addrs of interfaces")
-		}
-		ints[id] = InterfaceResponse{
-			Info:  i,
-			Addrs: addrs,
-		}
-	}
-	return Response{
-		Name:       hostname,
-		Interfaces: ints,
-	}
+func (m *Module) GetData() interface{} {
+	return os.GetData(m.Proc)
 }
