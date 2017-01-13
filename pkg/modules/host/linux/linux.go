@@ -24,8 +24,8 @@ func GetData(p model.HostProc) interface{} {
 			"err":    err,
 		}).Warn("Failed to retrieve host interfaces")
 	}
-	ints := make([]model.HostInterfaceResponse, len(ifaces))
-	for id, i := range ifaces {
+	ints := make(map[string]model.HostInterfaceResponse, len(ifaces))
+	for _, i := range ifaces {
 		addrs, err := i.Addrs()
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -34,7 +34,8 @@ func GetData(p model.HostProc) interface{} {
 				"err":   err,
 			}).Warn("Failed to retrieve addrs of interfaces")
 		}
-		ints[id] = model.HostInterfaceResponse{
+		ints[i.Name] = model.HostInterfaceResponse{
+			//HWAddr: i.HardwareAddr.String(),
 			Info:  i,
 			Addrs: addrs,
 		}
