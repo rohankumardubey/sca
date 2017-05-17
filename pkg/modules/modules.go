@@ -36,7 +36,7 @@ func Create(options map[string]string) *ModuleList {
 	}
 	return &ModuleList{
 		list:  list,
-		event: tools.MergeChan(c[:(i - 1)]...),
+		event: tools.MergeChan(c[:(i - 1)]...), //TODO test replace by github.com/eapache/channels.Multiplex
 	}
 }
 
