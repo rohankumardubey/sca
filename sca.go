@@ -28,6 +28,7 @@ var (
 	refreshToken string
 	baseURL      string
 	apiKey       string
+	moduleList   string
 
 	dockerEndpoint string
 
@@ -78,7 +79,7 @@ func setupFlags() {
 	daemonCmd.Flags().StringVarP(&refreshToken, pkg.TokenFlag, "t", "", "Firebase authentification token")
 	daemonCmd.Flags().StringVarP(&baseURL, pkg.BaseURLFlag, "u", "", "Firebase base url")
 	daemonCmd.Flags().StringVarP(&apiKey, pkg.APIFlag, "k", "", "Firebase api key")
-	//TODO Setup a list modules to enable like modules=host,collector,docker ...
+	daemonCmd.Flags().StringVarP(&moduleList, pkg.ModulesFlag, "m", "", "Module list to load/enable. (--modules=host,collector,docker)")
 	//TODO add flag to force UUID
 }
 
@@ -111,9 +112,10 @@ func startDaemon(cmd *cobra.Command, args []string) {
 
 func getOptions() map[string]string {
 	return map[string]string{
-		"app.version":     version,
-		"app.commit":      commit,
-		"app.dbFormat":    dbFormat,
-		"docker.endpoint": dockerEndpoint,
+		"app.version":            &version,
+		"app.commit":             &commit,
+		"app.dbFormat":           &dbFormat,
+		"app.module.list":        &moduleList,
+		"module.docker.endpoint": &dockerEndpoint,
 	}
 }
