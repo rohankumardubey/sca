@@ -112,10 +112,10 @@ func startDaemon(cmd *cobra.Command, args []string) {
 
 func getOptions() map[string]string {
 	return map[string]string{
-		"app.version":            &version,
-		"app.commit":             &commit,
-		"app.dbFormat":           &dbFormat,
-		"module.list":        &moduleList,
+		"app.version":             &version,
+		"app.commit":              &commit,
+		"app.dbFormat":            &dbFormat,
+		"module.list":             &moduleList,
 		"modules.docker.endpoint": &dockerEndpoint,
 	}
 }
