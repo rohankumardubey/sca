@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const id = "Docker"
+const ModuleID = "Docker"
 
 //Module retrieve information form executing sca
 type Module struct {
@@ -32,7 +32,7 @@ type Response struct {
 //New constructor for Module
 func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
-		"id":      id,
+		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
 
@@ -63,7 +63,7 @@ func setListener(client *docker.Client) <-chan string {
 			log.WithFields(log.Fields{
 				"event": e,
 			}).Debug("Module.Docker Receive event from docker client")
-			out <- id
+			out <- ModuleID
 		}
 	}()
 	/*
@@ -79,7 +79,7 @@ func setListener(client *docker.Client) <-chan string {
 
 //ID
 func (d *Module) ID() string {
-	return id
+	return ModuleID
 }
 
 //Event return event chan
