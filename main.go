@@ -20,10 +20,16 @@ import (
 //TODO watch docker event
 
 var (
-	//Version version of running code
-	version  = "testing" // By default use testing but will be set at build time on release -X main.version=v${VERSION}
-	commit   = "none"    // By default use none but will be set at build time on release -X main.commit=$(shell git log -q -1 | head -n 1 | cut -f2 -d' ')
-	dbFormat = "0"       //Used to evaluate compatibility with web UI
+	//Version version of app set by build flag
+	Version = "testing"
+	//Branch git branch of app set by build flag
+	Branch string
+	//Commit git commit of app set by build flag
+	Commit string
+	//BuildTime build time of app set by build flag
+	BuildTime string
+
+	dbFormat = "0" //Used to evaluate compatibility with web UI
 
 	refreshToken string
 	baseURL      string
@@ -56,14 +62,15 @@ var (
 		Use:   "version",
 		Short: "Display current version and build date",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Version: %s - Commit: %s\n", version, commit)
+			fmt.Printf("== Version: %s - Branch: %s - Commit: %s - BuildTime: %s ==\n", Version, Branch, Commit, BuildTime)
 		},
 	}
 )
 
 func main() {
 	setupFlags()
-	cmd.Long = fmt.Sprintf(pkg.LongHelp, version, commit)
+	cmd.Long = fmt.Sprintf(pkg.LongHelp, Version, Branch, Commit, BuildTime)
+
 	cmd.AddCommand(versionCmd, infoCmd, daemonCmd)
 	cmd.Execute()
 }
@@ -111,9 +118,11 @@ func startDaemon(cmd *cobra.Command, args []string) {
 
 func getOptions() map[string]string {
 	return map[string]string{
-		"app.version":  version,
-		"app.commit":   commit,
-		"app.dbFormat": dbFormat,
-		"module.list":  moduleList,
+		"app.version":   Version,
+		"app.branch":    Branch,
+		"app.commit":    Commit,
+		"app.buildtime": BuildTime,
+		"app.dbFormat":  dbFormat,
+		"module.list":   moduleList,
 	}
 }

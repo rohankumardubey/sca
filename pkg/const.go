@@ -17,6 +17,6 @@ const (
 	LongHelp = `
 sca (Simple Collector Agent)
 Collect local data and forward them to a realtime database.
-== Version: %s - Hash: %s ==
+== Version: %s - Branch: %s - Commit: %s - BuildTime: %s ==
 `
 )
