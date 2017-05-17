@@ -38,7 +38,6 @@ var (
 	cmd = &cobra.Command{
 		Use:              "sca",
 		Short:            "Simple Collector Agent",
-		Long:             pkg.LongHelp,
 		PersistentPreRun: tools.SetupLogger,
 	}
 	infoCmd = &cobra.Command{
@@ -74,13 +73,13 @@ func main() {
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(pkg.VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringVarP(&dockerEndpoint, pkg.EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
+	cmd.PersistentFlags().StringVarP(&moduleList, pkg.ModulesFlag, "m", "", "Module list to load/enable. (--modules=host,collector,docker)")
+	//TODO add flag to force UUID and defined by modules
 
 	daemonCmd.Flags().DurationVarP(&timeout, pkg.TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
 	daemonCmd.Flags().StringVarP(&refreshToken, pkg.TokenFlag, "t", "", "Firebase authentification token")
 	daemonCmd.Flags().StringVarP(&baseURL, pkg.BaseURLFlag, "u", "", "Firebase base url")
 	daemonCmd.Flags().StringVarP(&apiKey, pkg.APIFlag, "k", "", "Firebase api key")
-	daemonCmd.Flags().StringVarP(&moduleList, pkg.ModulesFlag, "m", "", "Module list to load/enable. (--modules=host,collector,docker)")
-	//TODO add flag to force UUID
 }
 
 func startDaemon(cmd *cobra.Command, args []string) {
