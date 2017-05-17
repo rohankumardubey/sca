@@ -71,7 +71,10 @@ func main() {
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(pkg.VerboseFlag, "v", false, "Turns on verbose logging")
 	cmd.PersistentFlags().StringVarP(&moduleList, pkg.ModulesFlag, "m", "", "Module list to load/enable. (--modules=host,collector,docker)")
-	cmd.PersistentFlags().AddFlagSet(modules.Flags())
+
+	cFlags := modules.Flags()
+	infoCmd.Flags().AddFlagSet(cFlags)
+	daemonCmd.Flags().AddFlagSet(cFlags)
 
 	daemonCmd.Flags().DurationVarP(&timeout, pkg.TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
 	daemonCmd.Flags().StringVarP(&refreshToken, pkg.TokenFlag, "t", "", "Firebase authentification token")
