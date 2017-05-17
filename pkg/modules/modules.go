@@ -9,7 +9,8 @@ import (
 	"github.com/sapk/sca/pkg/modules/host"
 	"github.com/sapk/sca/pkg/modules/uuid"
 	"github.com/sapk/sca/pkg/tools"
-	
+
+	"github.com/spf13/pflag"
 	"github.com/eapache/channels"
 	"github.com/fatih/structs"
 	log "github.com/sirupsen/logrus"
