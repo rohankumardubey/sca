@@ -36,7 +36,7 @@ func New(options map[string]string) model.Module {
 		"options": options,
 	}).Debug("Creating new Module")
 
-	client, err := docker.NewClient(options["docker.endpoint"])
+	client, err := docker.NewClient(options["module.docker.endpoint"])
 	if err != nil {
 		log.WithFields(log.Fields{
 			"client": client,
@@ -44,7 +44,7 @@ func New(options map[string]string) model.Module {
 		}).Warn("Failed to create docker client")
 		//return nil
 	}
-	return &Module{Endpoint: options["docker.endpoint"], Client: client, event: setListener(client)}
+	return &Module{Endpoint: options["module.docker.endpoint"], Client: client, event: setListener(client)}
 }
 
 func setListener(client *docker.Client) <-chan string {
