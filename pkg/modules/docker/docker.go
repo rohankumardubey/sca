@@ -77,7 +77,7 @@ func setListener(client *docker.Client) <-chan string {
 	return out
 }
 
-//ID //TODO
+//ID
 func (d *Module) ID() string {
 	return id
 }
@@ -87,7 +87,7 @@ func (d *Module) Event() <-chan string {
 	return d.event
 }
 
-//GetData //TODO
+//GetData
 func (d *Module) GetData() interface{} {
 
 	return Response{
