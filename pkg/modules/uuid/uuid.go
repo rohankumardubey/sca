@@ -24,7 +24,7 @@ func New(options map[string]string) model.Module {
 		"id":      id,
 		"options": options,
 	}).Debug("Creating new Module")
-	hostname, err := os.Hostname() //TODO maybe cache it at build time ?
+	hostname, err := os.Hostname()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"hostname": hostname,
@@ -38,8 +38,7 @@ func New(options map[string]string) model.Module {
 			"err":  err,
 		}).Fatal("Failed to generate uuid")
 	}
-	return &Module{UUID: u5.String()} //TODO use option to get a user or config (/etc/sca/uuid ?) defined uuid
-}
+	return &Module{UUID: u5.String()} //TODO use option to get a user or config (/etc/sca/uuid or via cmd ?) defined uuid
 
 //ID //TODO
 func (m *Module) ID() string {
