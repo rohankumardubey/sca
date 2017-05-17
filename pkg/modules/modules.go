@@ -50,11 +50,11 @@ func Create(options map[string]string) *ModuleList {
 
 //parseModuleListOption Return module list based on --modules list arg
 func parseModuleListOption(options map[string]string) map[string]func(map[string]string) {
-	if options["app.module.list"] == "" {
+	if options["module.list"] == "" {
 		return listModulesConstructor
 	}
 	
-	mList := strings.Split(options["app.module.list"], ",")
+	mList := strings.Split(options["module.list"], ",")
 	mContructors := make(map[string]func(map[string]string), len(mList)
 	for _, mName := range mList {
 		mc, ok := listModulesConstructor[mName]
