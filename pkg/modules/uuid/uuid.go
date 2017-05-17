@@ -39,7 +39,7 @@ func New(options map[string]string) model.Module {
 		}).Fatal("Failed to generate uuid")
 	}
 	return &Module{UUID: u5.String()} //TODO use option to get a user or config (/etc/sca/uuid or via cmd ?) defined uuid
-
+}
 //ID //TODO
 func (m *Module) ID() string {
 	return id
