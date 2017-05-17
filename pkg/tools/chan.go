@@ -8,6 +8,7 @@ import (
 )
 
 //MergeChan merge chan (code from Go documentatio)
+//TODO maybe replace by https://godoc.org/github.com/eapache/channels#Multiplex
 func MergeChan(cs ...<-chan interface{}) <-chan interface{} {
 	var wg sync.WaitGroup
 	out := make(chan interface{})
