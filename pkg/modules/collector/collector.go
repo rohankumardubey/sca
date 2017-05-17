@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const id = "Collector"
+const ModuleID = "Collector"
 
 //Module retrieve information form executing sca
 type Module struct {
@@ -35,7 +35,7 @@ type Response struct {
 //New constructor for Module
 func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
-		"id":      id,
+		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
 	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], DBFormat: options["app.dbFormat"], Commit: options["app.commit"], Config: getConfig(options) /* event: make(<-chan string)*/}
@@ -43,7 +43,7 @@ func New(options map[string]string) model.Module {
 
 //ID //TODO
 func (m *Module) ID() string {
-	return id
+	return ModuleID
 }
 
 //Event return event chan
