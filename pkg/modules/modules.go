@@ -1,19 +1,27 @@
 package modules
 
 import (
-	"github.com/eapache/channels"
-	"github.com/fatih/structs"
+	"strings"
+	
 	"github.com/sapk/sca/pkg/model"
 	"github.com/sapk/sca/pkg/modules/collector"
 	"github.com/sapk/sca/pkg/modules/docker"
 	"github.com/sapk/sca/pkg/modules/host"
 	"github.com/sapk/sca/pkg/modules/uuid"
 	"github.com/sapk/sca/pkg/tools"
+	
+	"github.com/eapache/channels"
+	"github.com/fatih/structs"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	listModulesConstructor = []func(map[string]string) model.Module{collector.New, docker.New, host.New, uuid.New}
+	listModulesConstructor = map[string]func(map[string]string) model.Module{ 
+		collector.ModuleID : collector.New,
+		docker.ModuleID    : docker.New,
+		host.ModuleID      : host.New,
+		uuid.ModuleID      : uuid.New,
+	} //TODO use golang module format and separate code.
 )
 
 //ModuleList represente a module list
@@ -40,14 +48,32 @@ func Create(options map[string]string) *ModuleList {
 	}
 }
 
+//parseModuleListOption Return module list based on --modules list arg
+func parseModuleListOption(options map[string]string) map[string]func(map[string]string) {
+	if options["app.module.list"] == "" {
+		return listModulesConstructor
+	}
+	
+	mList := strings.Split(options["app.module.list"], ",")
+	mContructors := make(map[string]func(map[string]string), len(mList)
+	for _, mName := range mList {
+		mc, ok := listModulesConstructor[mName]
+		if !ok {
+			log.Fatalf("Module %s not found", mName) //TODO be more gracefull ^^
+		}
+		mContructors[mName] = mc //This is also removing duplicate.
+	}
+	return mContructors
+}
 //getList Return module list initalized
 func getList(options map[string]string) map[string]model.Module {
-	m := make(map[string]model.Module, len(listModulesConstructor)) //TODO only load base on options args
-	for _, fc := range listModulesConstructor {
-		module := fc(options)
-		m[module.ID()] = module
+	constructors := parseModuleListOption(options)
+	modules := make(map[string]model.Module, len(constructors)
+	for _, fInit := range constructors {
+		module := fInit(options) //TODO only pass module.(module.ID()).xxx options
+		modules[module.ID()] = module
 	}
-	return m
+	return modules
 }
 
 //GetData request every module for a
