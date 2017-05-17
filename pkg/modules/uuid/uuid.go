@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const id = "UUID"
+const ModuleID = "UUID"
 
 //Module retrieve information form executing sca
 type Module struct {
@@ -21,7 +21,7 @@ type Response string
 //New constructor for Module
 func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
-		"id":      id,
+		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
 	hostname, err := os.Hostname()
@@ -42,7 +42,7 @@ func New(options map[string]string) model.Module {
 }
 //ID //TODO
 func (m *Module) ID() string {
-	return id
+	return ModuleID
 }
 
 //Event return event chan
