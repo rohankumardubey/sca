@@ -115,7 +115,7 @@ func getOptions() map[string]string {
 		"app.version":            &version,
 		"app.commit":             &commit,
 		"app.dbFormat":           &dbFormat,
-		"app.module.list":        &moduleList,
-		"module.docker.endpoint": &dockerEndpoint,
+		"module.list":        &moduleList,
+		"modules.docker.endpoint": &dockerEndpoint,
 	}
 }
