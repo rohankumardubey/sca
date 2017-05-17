@@ -5,12 +5,14 @@ import (
 
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sapk/sca/pkg/model"
-	"github.com/spf13/pflag"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
+//ModuleID define the id of module
 const ModuleID = "UUID"
-string argUUID
+
+var argUUID string
 
 //Module retrieve information form executing sca
 type Module struct {
@@ -52,6 +54,7 @@ func New(options map[string]string) model.Module {
 	}
 	return &Module{UUID: argUUID}
 }
+
 //ID //TODO
 func (m *Module) ID() string {
 	return ModuleID

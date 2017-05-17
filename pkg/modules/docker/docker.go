@@ -2,6 +2,7 @@ package docker
 
 //TODO monitor event and update data
 import (
+	"os"
 	"sort"
 	"strings"
 
@@ -9,9 +10,16 @@ import (
 	"github.com/sapk/sca/pkg/model"
 	"github.com/sapk/sca/pkg/tools"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
+//ModuleID define the id of module
 const ModuleID = "Docker"
+
+var dockerEndpoint string
+
+//EndpointEnv env to set endpoint of docker
+//EndpointEnv = "DOCKER_HOST"
 
 //Module retrieve information form executing sca
 type Module struct {
@@ -29,14 +37,23 @@ type Response struct {
 	Networks   []docker.Network       `json:"Networks,omitempty"`
 }
 
+//Flags set for Module
+func Flags() *pflag.FlagSet {
+	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
+	fSet.StringVar(&dockerEndpoint, "docker-endpoint", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
+	return fSet
+}
+
 //New constructor for Module
 func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
-
-	client, err := docker.NewClient(options["module.docker.endpoint"])
+	if os.Getenv("DOCKER_HOST") != "" && dockerEndpoint != "unix:///var/run/docker.sock" { //If default value of tag + env set
+		dockerEndpoint = os.Getenv("DOCKER_HOST")
+	}
+	client, err := docker.NewClient(dockerEndpoint)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"client": client,
@@ -44,7 +61,7 @@ func New(options map[string]string) model.Module {
 		}).Warn("Failed to create docker client")
 		//return nil
 	}
-	return &Module{Endpoint: options["module.docker.endpoint"], Client: client, event: setListener(client)}
+	return &Module{Endpoint: dockerEndpoint, Client: client, event: setListener(client)}
 }
 
 func setListener(client *docker.Client) <-chan string {
@@ -77,7 +94,7 @@ func setListener(client *docker.Client) <-chan string {
 	return out
 }
 
-//ID
+//ID id of module
 func (d *Module) ID() string {
 	return ModuleID
 }
@@ -87,7 +104,7 @@ func (d *Module) Event() <-chan string {
 	return d.event
 }
 
-//GetData
+//GetData export of current data of module
 func (d *Module) GetData() interface{} {
 
 	return Response{

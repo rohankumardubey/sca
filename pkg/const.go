@@ -3,10 +3,6 @@ package pkg
 const (
 	//VerboseFlag flag to set more verbose level
 	VerboseFlag = "verbose"
-	//EndpointFlag flag to set the endpoint to use (default: unix:///var/run/docker.sock)
-	EndpointFlag = "endpoint" //TODO pass to module specific format like module-docker-endpoint
-	//EndpointEnv env to set endpoint of docker
-	EndpointEnv = "DOCKER_HOST"
 	//TimeoutFlag flag to set timeout period
 	TimeoutFlag = "timeout"
 	//TokenFlag flag to set firebase token

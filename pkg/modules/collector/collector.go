@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//ModuleID define the id of module
 const ModuleID = "Collector"
 
 //Module retrieve information form executing sca

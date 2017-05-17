@@ -30,8 +30,6 @@ var (
 	apiKey       string
 	moduleList   string
 
-	dockerEndpoint string
-
 	timeout  time.Duration
 	debounce = 1 * time.Second
 
@@ -72,10 +70,8 @@ func main() {
 
 func setupFlags() {
 	cmd.PersistentFlags().BoolP(pkg.VerboseFlag, "v", false, "Turns on verbose logging")
-	cmd.PersistentFlags().StringVarP(&dockerEndpoint, pkg.EndpointFlag, "e", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 	cmd.PersistentFlags().StringVarP(&moduleList, pkg.ModulesFlag, "m", "", "Module list to load/enable. (--modules=host,collector,docker)")
-	cmd.PersistentFlags().AddFlagSet(modules.Flags)
-	//TODO add flag to force UUID and defined by modules
+	cmd.PersistentFlags().AddFlagSet(modules.Flags())
 
 	daemonCmd.Flags().DurationVarP(&timeout, pkg.TimeoutFlag, "r", 5*time.Minute, "Timeout before force refresh of collected data without event trigger during timeout period")
 	daemonCmd.Flags().StringVarP(&refreshToken, pkg.TokenFlag, "t", "", "Firebase authentification token")
@@ -112,10 +108,9 @@ func startDaemon(cmd *cobra.Command, args []string) {
 
 func getOptions() map[string]string {
 	return map[string]string{
-		"app.version":             &version,
-		"app.commit":              &commit,
-		"app.dbFormat":            &dbFormat,
-		"module.list":             &moduleList,
-		"modules.docker.endpoint": &dockerEndpoint,
+		"app.version":  version,
+		"app.commit":   commit,
+		"app.dbFormat": dbFormat,
+		"module.list":  moduleList,
 	}
 }

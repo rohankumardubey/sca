@@ -2,7 +2,7 @@ package modules
 
 import (
 	"strings"
-	
+
 	"github.com/sapk/sca/pkg/model"
 	"github.com/sapk/sca/pkg/modules/collector"
 	"github.com/sapk/sca/pkg/modules/docker"
@@ -10,18 +10,18 @@ import (
 	"github.com/sapk/sca/pkg/modules/uuid"
 	"github.com/sapk/sca/pkg/tools"
 
-	"github.com/spf13/pflag"
 	"github.com/eapache/channels"
 	"github.com/fatih/structs"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 var (
-	listModulesConstructor = map[string]func(map[string]string) model.Module{ 
-		collector.ModuleID : collector.New,
-		docker.ModuleID    : docker.New,
-		host.ModuleID      : host.New,
-		uuid.ModuleID      : uuid.New,
+	listModulesConstructor = map[string]func(map[string]string) model.Module{
+		collector.ModuleID: collector.New,
+		docker.ModuleID:    docker.New,
+		host.ModuleID:      host.New,
+		uuid.ModuleID:      uuid.New,
 	} //TODO use golang module format and separate code.
 )
 
@@ -34,7 +34,8 @@ type ModuleList struct {
 //Flags set for Module
 func Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet("", pflag.ExitOnError)
-	fSet.AddFlagSet(uuid.Flags)
+	fSet.AddFlagSet(uuid.Flags())
+	fSet.AddFlagSet(docker.Flags())
 	//TODO add others modules and loop.
 	return fSet
 }
@@ -53,18 +54,18 @@ func Create(options map[string]string) *ModuleList {
 	}
 	return &ModuleList{
 		list:  list,
-		event: tools.MergeChan(c[:(i - 1)]...), //TODO test replace by github.com/eapache/channels.Multiplex
+		event: tools.MergeChan(c...), //TODO test replace by github.com/eapache/channels.Multiplex
 	}
 }
 
 //parseModuleListOption Return module list based on --modules list arg
-func parseModuleListOption(options map[string]string) map[string]func(map[string]string) {
+func parseModuleListOption(options map[string]string) map[string]func(map[string]string) model.Module {
 	if options["module.list"] == "" {
 		return listModulesConstructor
 	}
-	
+
 	mList := strings.Split(options["module.list"], ",")
-	mContructors := make(map[string]func(map[string]string), len(mList)
+	mContructors := make(map[string]func(map[string]string) model.Module, len(mList))
 	for _, mName := range mList {
 		mc, ok := listModulesConstructor[mName]
 		if !ok {
@@ -74,10 +75,11 @@ func parseModuleListOption(options map[string]string) map[string]func(map[string
 	}
 	return mContructors
 }
+
 //getList Return module list initalized
 func getList(options map[string]string) map[string]model.Module {
 	constructors := parseModuleListOption(options)
-	modules := make(map[string]model.Module, len(constructors)
+	modules := make(map[string]model.Module, len(constructors))
 	for _, fInit := range constructors {
 		module := fInit(options) //TODO only pass module.(module.ID()).xxx options
 		modules[module.ID()] = module
