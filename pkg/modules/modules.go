@@ -30,6 +30,14 @@ type ModuleList struct {
 	event <-chan interface{}
 }
 
+//Flags set for Module
+func Flags() *pflag.FlagSet {
+	fSet := pflag.NewFlagSet("", pflag.ExitOnError)
+	fSet.AddFlagSet(uuid.Flags)
+	//TODO add others modules and loop.
+	return fSet
+}
+
 //Create a module list and init them
 func Create(options map[string]string) *ModuleList {
 	list := getList(options)
