@@ -10,7 +10,7 @@ import (
 )
 
 //ModuleID define the id of module
-const ModuleID = "Collector"
+const ModuleID = "collector"
 
 //Module retrieve information form executing sca
 type Module struct {

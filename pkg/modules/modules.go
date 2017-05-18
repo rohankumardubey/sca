@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/sapk/sca/pkg/model"
+	"github.com/sapk/sca/pkg/modules/arp"
 	"github.com/sapk/sca/pkg/modules/collector"
 	"github.com/sapk/sca/pkg/modules/docker"
 	"github.com/sapk/sca/pkg/modules/host"
@@ -22,6 +23,7 @@ var (
 		docker.ModuleID:    docker.New,
 		host.ModuleID:      host.New,
 		uuid.ModuleID:      uuid.New,
+		arp.ModuleID:       arp.New,
 	} //TODO use golang module format and separate code.
 )
 
@@ -64,7 +66,7 @@ func parseModuleListOption(options map[string]string) map[string]func(map[string
 		return listModulesConstructor
 	}
 
-	mList := strings.Split(options["module.list"], ",")
+	mList := strings.Split(options["module.list"]+",uuid", ",") //Add uuid by force
 	mContructors := make(map[string]func(map[string]string) model.Module, len(mList))
 	for _, mName := range mList {
 		mc, ok := listModulesConstructor[mName]

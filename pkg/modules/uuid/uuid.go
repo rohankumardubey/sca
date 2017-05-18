@@ -10,7 +10,7 @@ import (
 )
 
 //ModuleID define the id of module
-const ModuleID = "UUID"
+const ModuleID = "uuid"
 
 var argUUID string
 
@@ -55,7 +55,7 @@ func New(options map[string]string) model.Module {
 	return &Module{UUID: argUUID}
 }
 
-//ID //TODO
+//ID id of module
 func (m *Module) ID() string {
 	return ModuleID
 }
@@ -65,7 +65,7 @@ func (m *Module) Event() <-chan string {
 	return nil
 }
 
-//GetData //TODO
+//GetData data of module
 func (m *Module) GetData() interface{} {
 	return m.UUID
 }

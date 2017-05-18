@@ -60,7 +60,7 @@ func New(apiKey, refreshToken, baseURL string) (*API, error) {
 //Send data to api with deduction of common value since last update
 func (a *API) Send(data map[string]interface{}) error {
 	if a._data == nil { //No data of backend so sending the complet obj
-		a._data = a.update(data["UUID"].(string), data).(map[string]interface{}) //Save state
+		a._data = a.update(data["uuid"].(string), data).(map[string]interface{}) //Save state
 		//TODO -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
 		log.WithFields(log.Fields{
 			"data_bytes": tools.SizeOfJSON(data), //Debug
@@ -72,7 +72,7 @@ func (a *API) Send(data map[string]interface{}) error {
 		}
 		//Debug
 		sizeBeforeCleaning := tools.SizeOfJSON(data)
-		cleanData, sendedData := a.sendDeDuplicateData(data["UUID"].(string), a._data, data)
+		cleanData, sendedData := a.sendDeDuplicateData(data["uuid"].(string), a._data, data)
 		//TODO at each step -> queue.Enqueue(&QueueItem{Type: "set", Data: data})
 		sizeAfterCleaning := tools.SizeOfJSON(cleanData)
 		log.WithFields(log.Fields{

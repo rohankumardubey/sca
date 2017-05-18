@@ -14,7 +14,7 @@ import (
 )
 
 //ModuleID define the id of module
-const ModuleID = "Docker"
+const ModuleID = "docker"
 
 var dockerEndpoint string
 

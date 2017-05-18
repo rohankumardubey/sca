@@ -8,7 +8,7 @@ import (
 )
 
 //ModuleID define the id of module
-const ModuleID = "Host"
+const ModuleID = "host"
 
 //Module retrieve information form executing sca
 type Module struct {
