@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sapk/sca/pkg/model"
+	"github.com/spf13/pflag"
 
 	log "github.com/sirupsen/logrus"
 )
