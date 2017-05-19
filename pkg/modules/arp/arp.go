@@ -4,21 +4,21 @@ import (
 	"net"
 	"strings"
 
-	"github.com/mostlygeek/arp"
+	"github.com/mdlayher/arp"
+	"github.com/emirpasic/gods/maps/treemap"
+	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/sapk/sca/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
 
 //Module retrieve information form executing sca
 type Module struct {
+	table *treemap.Map
+	event <-chan string
 }
-
-//Response describe returned informations
-type Response map[string]host
-
-type host struct {
-	MAC   string
-	Hosts []string
+type macEntry struct {
+	IPs *treeset.Set
+	Hostnames *treeset.Set
 }
 
 //ModuleID define the id of module
@@ -30,12 +30,44 @@ func New(options map[string]string) model.Module {
 		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
-
-	//arp.AutoRefresh(5 * time.Minute)
-	arp.CacheUpdate()
-	return &Module{}
+	table := treemap.NewWithStringComparator()
+	return &Module{table: table, event: setListener(table)}
 }
+func setListener(table *treemap.Map) <-chan string {
+	c : arp.Dial(/*TODO*/)
+	out := make(chan string)
+	//TODO fill a table with all mac discovered
+	go func() {
+		for {	
+			arpPacket, _, err := c.Read()
+			if err != nil {
+				log.Error(err)
+				continue
+			}
 
+			if arpPacket.Operation != OperationReply {
+				continue
+			}
+			v, ok := m.Get(arp.SenderHardwareAddr.String()) 
+			if !ok {
+				v = macEntry {
+					IPs : treeset.NewWithStringComparator(),
+					Hostnames : treeset.NewWithStringComparator(),
+				}
+			}
+			
+			v.IPs.Add(arpPacket.SenderIP)
+			//TODO add module flags for resolv activation
+			hosts, err := net.LookupAddr(arpPacket.SenderIP)
+			if err == nil {
+				v.Hostnames.Add(hosts...)
+			}
+			table.Put(arp.SenderHardwareAddr.String(), v)
+			out <- ModuleID
+		}
+	}
+	return out
+}
 //ID id of module
 func (m *Module) ID() string {
 	return ModuleID
@@ -43,11 +75,13 @@ func (m *Module) ID() string {
 
 //Event return event chan
 func (m *Module) Event() <-chan string {
-	return nil
+	return m.event
 }
 
 //GetData //TODO
 func (m *Module) GetData() interface{} {
+	d.table.Values()
+	/* solution based on "github.com/mostlygeek/arp"
 	t := arp.Table()
 	r := make(Response, len(t))
 	//hostList := make(map[string][]string, len(t))
@@ -65,4 +99,5 @@ func (m *Module) GetData() interface{} {
 		r[ipClean] = h
 	}
 	return r
+	*/
 }
