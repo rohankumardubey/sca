@@ -11,6 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var argNoResolv bool
+
 //Module retrieve information form executing sca
 type Module struct {
 	table *treemap.Map
@@ -33,10 +35,10 @@ func New(options map[string]string) model.Module {
 	table := treemap.NewWithStringComparator()
 	return &Module{table: table, event: setListener(table)}
 }
+
 func setListener(table *treemap.Map) <-chan string {
 	c : arp.Dial(/*TODO*/)
 	out := make(chan string)
-	//TODO fill a table with all mac discovered
 	go func() {
 		for {	
 			arpPacket, _, err := c.Read()
@@ -57,10 +59,11 @@ func setListener(table *treemap.Map) <-chan string {
 			}
 			
 			v.IPs.Add(arpPacket.SenderIP)
-			//TODO add module flags for resolv activation
-			hosts, err := net.LookupAddr(arpPacket.SenderIP)
-			if err == nil {
-				v.Hostnames.Add(hosts...)
+			if !argNoResolv {
+				hosts, err := net.LookupAddr(arpPacket.SenderIP)
+				if err == nil {
+					v.Hostnames.Add(hosts...)
+				}
 			}
 			table.Put(arp.SenderHardwareAddr.String(), v)
 			out <- ModuleID
@@ -68,6 +71,14 @@ func setListener(table *treemap.Map) <-chan string {
 	}
 	return out
 }
+
+//Flags set for Module
+func Flags() *pflag.FlagSet {
+	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
+	fSet.BoolVar(&argNoResolv, "arp-no-resolve", false, "resolve reverse-dns of ip found by arp. (default:false)")
+	return fSet
+}
+
 //ID id of module
 func (m *Module) ID() string {
 	return ModuleID
@@ -80,24 +91,5 @@ func (m *Module) Event() <-chan string {
 
 //GetData //TODO
 func (m *Module) GetData() interface{} {
-	d.table.Values()
-	/* solution based on "github.com/mostlygeek/arp"
-	t := arp.Table()
-	r := make(Response, len(t))
-	//hostList := make(map[string][]string, len(t))
-	//macList := make(map[string]string, len(t))
-
-	for ip, mac := range t {
-		ipClean := strings.Replace(ip, ".", "-", -1)
-		h := host{
-			MAC: mac,
-		}
-		hosts, err := net.LookupAddr(ip)
-		if err == nil {
-			h.Hosts = hosts
-		}
-		r[ipClean] = h
-	}
-	return r
-	*/
+	return d.table.Values()
 }
