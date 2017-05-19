@@ -38,6 +38,7 @@ func Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet("", pflag.ExitOnError)
 	fSet.AddFlagSet(uuid.Flags())
 	fSet.AddFlagSet(docker.Flags())
+	fSet.AddFlagSet(arp.Flags())
 	//TODO add others modules and loop.
 	return fSet
 }
