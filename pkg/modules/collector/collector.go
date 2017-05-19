@@ -44,7 +44,7 @@ func (m *Module) New(options map[string]string) model.Module {
 
 //Flagsset for Module
 func (m *Module) Flags() *pflag.FlagSet {
-	return pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
+	return nil
 }
 
 //ID return module ID
