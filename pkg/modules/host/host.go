@@ -16,7 +16,7 @@ type Module struct {
 }
 
 //New constructor for Module
-func New(options map[string]string) model.Module {
+func (m *Module) New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
@@ -26,7 +26,12 @@ func New(options map[string]string) model.Module {
 	return &Module{Proc: &p}
 }
 
-//ID //TODO
+//Flagsset for Module
+func (m *Module) Flags() *pflag.FlagSet {
+	return nil
+}
+
+//ID return module ID
 func (m *Module) ID() string {
 	return ModuleID
 }
