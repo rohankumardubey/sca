@@ -27,7 +27,7 @@ func (m *Module) Flags() *pflag.FlagSet {
 }
 
 //New constructor for Module
-func (m *Module) Init(options map[string]string) model.Module {
+func (m *Module) New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
