@@ -17,9 +17,6 @@ const ModuleID = "docker"
 
 var dockerEndpoint string
 
-//EndpointEnv env to set endpoint of docker
-//EndpointEnv = "DOCKER_HOST"
-
 //Module retrieve information form executing sca
 type Module struct {
 	Endpoint string
