@@ -9,6 +9,7 @@ import (
 )
 
 //TypeOrEnv parse cmd to file with env vars
+/* not used anymore
 func TypeOrEnv(cmd *cobra.Command, flag, envname string) string {
 	val, _ := cmd.Flags().GetString(flag)
 	if val == "" {
@@ -16,6 +17,7 @@ func TypeOrEnv(cmd *cobra.Command, flag, envname string) string {
 	}
 	return val
 }
+*/
 
 //SetupLogger parse cmd for log level
 func SetupLogger(cmd *cobra.Command, args []string) {
