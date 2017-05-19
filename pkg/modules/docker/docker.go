@@ -1,6 +1,5 @@
 package docker
 
-//TODO monitor event and update data
 import (
 	"os"
 	"sort"
@@ -38,14 +37,14 @@ type Response struct {
 }
 
 //Flags set for Module
-func Flags() *pflag.FlagSet {
+func (d *Module) Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
 	fSet.StringVar(&dockerEndpoint, "docker-endpoint", "unix:///var/run/docker.sock", "Docker endpoint.  Can also set default environment DOCKER_HOST")
 	return fSet
 }
 
 //New constructor for Module
-func New(options map[string]string) model.Module {
+func (d *Module) New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
