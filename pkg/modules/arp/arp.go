@@ -27,7 +27,7 @@ type macEntry struct {
 const ModuleID = "arp"
 
 //New constructor for Module
-func New(options map[string]string) model.Module {
+func (m *Module) New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
@@ -73,7 +73,7 @@ func setListener(table *treemap.Map) <-chan string {
 }
 
 //Flags set for Module
-func Flags() *pflag.FlagSet {
+func (m *Module) Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
 	fSet.BoolVar(&argNoResolv, "arp-no-resolve", false, "resolve reverse-dns of ip found by arp. (default:false)")
 	return fSet
