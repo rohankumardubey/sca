@@ -12,25 +12,22 @@ import (
 //ModuleID define the id of module
 const ModuleID = "uuid"
 
-var argUUID string
-
 //Module retrieve information form executing sca
 type Module struct {
 	UUID string
 }
 
-//Response describe collector informations
-type Response string
+var argUUID string
 
 //Flags set for Module
-func Flags() *pflag.FlagSet {
+func (m *Module) Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
 	fSet.StringVar(&argUUID, "uuid", "", "uuid to use by this collector")
 	return fSet
 }
 
 //New constructor for Module
-func New(options map[string]string) model.Module {
+func (m *Module) Init(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
