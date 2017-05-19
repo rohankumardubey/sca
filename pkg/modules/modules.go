@@ -18,12 +18,12 @@ import (
 )
 
 var (
-	listModulesConstructor = map[string]func(map[string]string) model.Module{
-		collector.ModuleID: collector.New,
-		docker.ModuleID:    docker.New,
-		host.ModuleID:      host.New,
-		uuid.ModuleID:      uuid.New,
-		arp.ModuleID:       arp.New,
+	listModules = map[string]model.Module{
+		collector.ModuleID: collector.Module{},
+		docker.ModuleID:    docker.Module{},
+		host.ModuleID:      host.Module{},
+		uuid.ModuleID:      uuid.Module{},
+		arp.ModuleID:       arp.Module{},
 	} //TODO use golang module format and separate code.
 )
 
@@ -35,11 +35,11 @@ type ModuleList struct {
 
 //Flags set for Module
 func Flags() *pflag.FlagSet {
-	fSet := pflag.NewFlagSet("", pflag.ExitOnError)
-	fSet.AddFlagSet(uuid.Flags())
-	fSet.AddFlagSet(docker.Flags())
-	fSet.AddFlagSet(arp.Flags())
-	//TODO add others modules and loop.
+	fSet := pflag.NewFlagSet("", pflag.ExitOnError)	
+	constructors := parseModuleListOption(options)
+	for _, c := range constructors {
+		fSet.AddFlagSet(c.Flags())
+	}
 	return fSet
 }
 
@@ -62,15 +62,15 @@ func Create(options map[string]string) *ModuleList {
 }
 
 //parseModuleListOption Return module list based on --modules list arg
-func parseModuleListOption(options map[string]string) map[string]func(map[string]string) model.Module {
+func parseModuleListOption(options map[string]string) map[string]model.Module {
 	if options["module.list"] == "" {
-		return listModulesConstructor
+		return listModules
 	}
 
 	mList := strings.Split(options["module.list"]+",uuid", ",") //Add uuid by force
 	mContructors := make(map[string]func(map[string]string) model.Module, len(mList))
 	for _, mName := range mList {
-		mc, ok := listModulesConstructor[mName]
+		mc, ok := listModules[mName]
 		if !ok {
 			log.Fatalf("Module %s not found", mName) //TODO be more gracefull ^^
 		}
@@ -83,14 +83,14 @@ func parseModuleListOption(options map[string]string) map[string]func(map[string
 func getList(options map[string]string) map[string]model.Module {
 	constructors := parseModuleListOption(options)
 	modules := make(map[string]model.Module, len(constructors))
-	for _, fInit := range constructors {
-		module := fInit(options) //TODO only pass module.(module.ID()).xxx options
+	for _, c := range constructors {
+		module := c.New(options) //TODO only pass module.(module.ID()).xxx options
 		modules[module.ID()] = module
 	}
 	return modules
 }
 
-//GetData request every module for a
+//GetData request every module for GetData
 func (ml *ModuleList) GetData() map[string]interface{} {
 	d := make(map[string]interface{})
 	for k, m := range ml.list {
