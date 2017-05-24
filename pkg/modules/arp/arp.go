@@ -4,7 +4,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/mdlayher/arp"
+	"github.com/mdlayher/arp" //could be replace by https://github.com/google/gopacket/blob/master/examples/arpscan/arpscan.go
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/sets/treeset"
 	"github.com/sapk/sca/pkg/model"
