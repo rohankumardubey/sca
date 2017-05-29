@@ -5,6 +5,7 @@ import (
 	"github.com/sapk/sca/pkg/model"
 	os "github.com/sapk/sca/pkg/modules/host/linux"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 //ModuleID define the id of module
@@ -16,7 +17,7 @@ type Module struct {
 }
 
 //New constructor for Module
-func (m *Module) New(options map[string]string) model.Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
@@ -26,8 +27,8 @@ func (m *Module) New(options map[string]string) model.Module {
 	return &Module{Proc: &p}
 }
 
-//Flagsset for Module
-func (m *Module) Flags() *pflag.FlagSet {
+//Flags for Module
+func Flags() *pflag.FlagSet {
 	return nil
 }
 

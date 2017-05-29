@@ -20,14 +20,14 @@ type Module struct {
 var argUUID string
 
 //Flags set for Module
-func (m *Module) Flags() *pflag.FlagSet {
+func Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
 	fSet.StringVar(&argUUID, "uuid", "", "uuid to use by this collector")
 	return fSet
 }
 
 //New constructor for Module
-func (m *Module) New(options map[string]string) model.Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,

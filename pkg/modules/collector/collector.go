@@ -35,7 +35,7 @@ type Response struct {
 }
 
 //New constructor for Module
-func (m *Module) New(options map[string]string) model.Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
@@ -43,8 +43,8 @@ func (m *Module) New(options map[string]string) model.Module {
 	return &Module{StartTime: time.Now().Unix(), Version: options["app.version"], DBFormat: options["app.dbFormat"], Commit: options["app.commit"], Config: getConfig(options) /* event: make(<-chan string)*/}
 }
 
-//Flagsset for Module
-func (m *Module) Flags() *pflag.FlagSet {
+//Flags for Module
+func Flags() *pflag.FlagSet {
 	return nil
 }
 

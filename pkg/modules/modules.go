@@ -18,12 +18,19 @@ import (
 )
 
 var (
-	listModules = map[string]model.Module{
-		collector.ModuleID: collector.Module{},
-		docker.ModuleID:    docker.Module{},
-		host.ModuleID:      host.Module{},
-		uuid.ModuleID:      uuid.Module{},
-		arp.ModuleID:       arp.Module{},
+	listModules = map[string]func(map[string]string) model.Module{
+		collector.ModuleID: collector.New,
+		docker.ModuleID:    docker.New,
+		host.ModuleID:      host.New,
+		uuid.ModuleID:      uuid.New,
+		arp.ModuleID:       arp.New,
+	} //TODO use golang module format and separate code.
+	listModulesFlags = map[string]func() *pflag.FlagSet{
+		collector.ModuleID: collector.Flags,
+		docker.ModuleID:    docker.Flags,
+		host.ModuleID:      host.Flags,
+		uuid.ModuleID:      uuid.Flags,
+		arp.ModuleID:       arp.Flags,
 	} //TODO use golang module format and separate code.
 )
 
@@ -35,10 +42,10 @@ type ModuleList struct {
 
 //Flags set for Module
 func Flags() *pflag.FlagSet {
-	fSet := pflag.NewFlagSet("", pflag.ExitOnError)	
-	constructors := parseModuleListOption(options)
-	for _, c := range constructors {
-		fSet.AddFlagSet(c.Flags())
+	fSet := pflag.NewFlagSet("", pflag.ExitOnError)
+	constructors := parseModuleListOption(map[string]string{}) //default empty //TODO ready args
+	for id := range constructors {
+		fSet.AddFlagSet(listModulesFlags[id]())
 	}
 	return fSet
 }
@@ -62,7 +69,7 @@ func Create(options map[string]string) *ModuleList {
 }
 
 //parseModuleListOption Return module list based on --modules list arg
-func parseModuleListOption(options map[string]string) map[string]model.Module {
+func parseModuleListOption(options map[string]string) map[string]func(map[string]string) model.Module {
 	if options["module.list"] == "" {
 		return listModules
 	}
@@ -84,7 +91,7 @@ func getList(options map[string]string) map[string]model.Module {
 	constructors := parseModuleListOption(options)
 	modules := make(map[string]model.Module, len(constructors))
 	for _, c := range constructors {
-		module := c.New(options) //TODO only pass module.(module.ID()).xxx options
+		module := c(options) //TODO only pass module.(module.ID()).xxx options
 		modules[module.ID()] = module
 	}
 	return modules

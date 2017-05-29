@@ -2,13 +2,13 @@ package arp
 
 import (
 	"net"
-	"strings"
 
-	"github.com/mdlayher/arp" //could be replace by https://github.com/google/gopacket/blob/master/examples/arpscan/arpscan.go
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/sets/treeset"
+	"github.com/mdlayher/arp" //could be replace by https://github.com/google/gopacket/blob/master/examples/arpscan/arpscan.go
 	"github.com/sapk/sca/pkg/model"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 )
 
 var argNoResolv bool
@@ -16,10 +16,10 @@ var argNoResolv bool
 //Module retrieve information form executing sca
 type Module struct {
 	table *treemap.Map
-	event <-chan string
+	event chan string
 }
 type macEntry struct {
-	IPs *treeset.Set
+	IPs       *treeset.Set
 	Hostnames *treeset.Set
 }
 
@@ -27,53 +27,74 @@ type macEntry struct {
 const ModuleID = "arp"
 
 //New constructor for Module
-func (m *Module) New(options map[string]string) model.Module {
+func New(options map[string]string) model.Module {
 	log.WithFields(log.Fields{
 		"id":      ModuleID,
 		"options": options,
 	}).Debug("Creating new Module")
-	table := treemap.NewWithStringComparator()
-	return &Module{table: table, event: setListener(table)}
+	newm := &Module{table: treemap.NewWithStringComparator()}
+	newm.setListener()
+	return newm
 }
 
-func setListener(table *treemap.Map) <-chan string {
-	c : arp.Dial(/*TODO*/)
-	out := make(chan string)
-	go func() {
-		for {	
-			arpPacket, _, err := c.Read()
-			if err != nil {
-				log.Error(err)
-				continue
-			}
+func (m *Module) setListener() <-chan string {
 
-			if arpPacket.Operation != OperationReply {
-				continue
-			}
-			v, ok := m.Get(arp.SenderHardwareAddr.String()) 
-			if !ok {
-				v = macEntry {
-					IPs : treeset.NewWithStringComparator(),
-					Hostnames : treeset.NewWithStringComparator(),
-				}
-			}
-			
-			v.IPs.Add(arpPacket.SenderIP)
-			if !argNoResolv {
-				hosts, err := net.LookupAddr(arpPacket.SenderIP)
-				if err == nil {
-					v.Hostnames.Add(hosts...)
-				}
-			}
-			table.Put(arp.SenderHardwareAddr.String(), v)
-			out <- ModuleID
+	// Get a list of all interfaces.
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	out := make(chan string)
+	for _, iface := range ifaces {
+		c, err := arp.Dial(&iface)
+		if err != nil {
+			log.Warn(err)
 		}
+		go func(m *Module) {
+			for {
+				arpPacket, _, err := c.Read()
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+
+				if arpPacket.Operation != arp.OperationReply {
+					continue
+				}
+				mac := arpPacket.SenderHardwareAddr.String()
+				v, ok := m.table.Get(mac)
+				if !ok {
+					v = macEntry{
+						IPs:       treeset.NewWithStringComparator(),
+						Hostnames: treeset.NewWithStringComparator(),
+					}
+				}
+
+				e := v.(macEntry)
+				e.IPs.Add(arpPacket.SenderIP)
+				if !argNoResolv {
+					hosts, err := net.LookupAddr(arpPacket.SenderIP.String())
+					if err == nil {
+						for _, h := range hosts {
+							e.Hostnames.Add(h)
+						}
+					}
+				}
+				log.WithFields(log.Fields{
+					"mac":   mac,
+					"value": e,
+				}).Debug("Addding to arp mac list")
+				m.table.Put(mac, e)
+				m.event <- ModuleID
+			}
+		}(m)
 	}
 	return out
 }
 
 //Flags set for Module
-func (m *Module) Flags() *pflag.FlagSet {
+func Flags() *pflag.FlagSet {
 	fSet := pflag.NewFlagSet(ModuleID, pflag.ExitOnError)
 	fSet.BoolVar(&argNoResolv, "arp-no-resolve", false, "resolve reverse-dns of ip found by arp. (default:false)")
 	return fSet
@@ -89,7 +110,7 @@ func (m *Module) Event() <-chan string {
 	return m.event
 }
 
-//GetData //TODO
+//GetData //TODO wait for atleast one result (maybe start a scan at startup ?)
 func (m *Module) GetData() interface{} {
-	return d.table.Values()
+	return m.table.Values()
 }

@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"os"
+	/*"os"*/
 
 	"github.com/sapk/sca/pkg"
 	log "github.com/sirupsen/logrus"
